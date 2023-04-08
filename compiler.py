@@ -1,4 +1,4 @@
-# todo : symbol table (done) , handling errors, transitions, parser alternate, output file
+# todo : symbol table (done) , handling errors, transitions, parser alternate (done), output file
 # negar, hasti, hasti, negar
 
 class State:
@@ -139,10 +139,17 @@ scanner = Scanner(
     sym_file=sym_file
 )
 add_states(scanner)
+
 while True:
     token = scanner.get_next_token()
     if token is None:
         break
+
+in_file.close()
+out_file.close()
+lex_file.close()
+sym_file.close()
+
 
 # todo
 def add_states(scanner):
