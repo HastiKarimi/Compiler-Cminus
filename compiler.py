@@ -1,11 +1,5 @@
-# todo : symbol table (done) , handling errors, transitions, parser alternate
+# todo : symbol table (done) , handling errors, transitions, parser alternate, output file
 # negar, hasti, hasti, negar
-
-in_file = open("input.txt")
-out_file = open("tokens.txt", "w")
-lex_file = open("lexical_errors.txt", "w")
-sym_file = open("symbol_table.txt", "w")
-
 
 class State:
 
@@ -35,9 +29,9 @@ class State:
 
 
 class Scanner:
-    def __init__(self, input_file, out_file, lex_file, sym_file):
+    def __init__(self, input_file, output_file, lex_file, sym_file):
         self.input_file = input_file
-        self.out_file = out_file
+        self.output_file = output_file
         self.lex_file = lex_file
         self.sym_file = sym_file
         self.state_list = []
@@ -70,6 +64,7 @@ class Scanner:
     def is_type_parsable(self, type_id: int):
         return type_id not in [5, 6]
 
+    # returns the next token valuable by parser - returns None if no other token is available
     def get_next_token(self):
         state_id = 0
         while self.state_list[state_id].terminality_status == 0:
@@ -94,6 +89,7 @@ class Scanner:
         if self.is_type_parsable(type_id):
             token = self.types[type_id], lexeme
             self.install_in_symbol_table(token)
+            # todo: write the token in the output file
             return token
         else:
             return self.get_next_token()
@@ -126,3 +122,28 @@ class Scanner:
 
     def handle_error(self, state_id: int, char: str):
         self.lex_file.write(self.state_list[state_id].get_error())
+
+
+
+# initialize a scanner and call get_next_token repeatedly
+
+in_file = open("input.txt", "r")
+out_file = open("tokens.txt", "w+")
+lex_file = open("lexical_errors.txt", "w+")
+sym_file = open("symbol_table.txt", "w+")
+
+scanner = Scanner(
+    input_file=in_file,
+    output_file=out_file,
+    lex_file=lex_file,
+    sym_file=sym_file
+)
+add_states(scanner)
+while True:
+    token = scanner.get_next_token()
+    if token is None:
+        break
+
+# todo
+def add_states(scanner):
+    pass
