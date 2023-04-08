@@ -1,10 +1,10 @@
+# todo : symbol table (done) , handling errors, transitions, parser alternate
+# negar, hasti, hasti, negar
+
 in_file = open("input.txt")
 out_file = open("tokens.txt", "w")
 lex_file = open("lexical_errors.txt", "w")
-sym_file = open("symbol_table.txt")
-
-
-# types = {1: "NUM", 2: "ID", 3: "KEYWORD", 4: "SYMBOL", 5: "COMMENT", 6: "WHITESPACE"}
+sym_file = open("symbol_table.txt", "w")
 
 
 class State:
@@ -26,7 +26,7 @@ class State:
             ascii_ranges, goal_state = transition
             input_ascii = ord(character)
             for (begin, end) in ascii_ranges:
-                if input_ascii >= begin and input_ascii <= end:
+                if begin <= input_ascii <= end:
                     return goal_state
         return -1
 
@@ -42,6 +42,10 @@ class Scanner:
         self.sym_file = sym_file
         self.state_list = []
         self.types = {1: "NUM", 2: "ID", 3: "KEYWORD", 4: "SYMBOL", 5: "COMMENT", 6: "WHITESPACE"}
+
+        # elements of the symbol table - keywords should go first.
+        self.keywords = []
+        self.identifiers = []
 
         self.line_number = 0
         self.current_line = ""
@@ -71,6 +75,7 @@ class Scanner:
         while self.state_list[state_id].terminality_status == 0:
             next_char = self.get_next_char()
             next_state_id = self.state_list[state_id].get_next_state(next_char)
+            # the id of eof state is 0
             if next_state_id == 0:
                 return None
             if next_state_id == -1:
@@ -87,9 +92,36 @@ class Scanner:
         type_id = self.state_list[state_id].type_id
 
         if self.is_type_parsable(type_id):
-            return self.types[type_id], lexeme
+            token = self.types[type_id], lexeme
+            self.install_in_symbol_table(token)
+            return token
         else:
             return self.get_next_token()
+
+    def install_in_symbol_table(self, token):
+        keyword_type = "KEYWORD"
+        id_type = "ID"
+        type, lexeme = token
+        if type == keyword_type:
+            if lexeme not in self.keywords:
+                self.keywords.append(lexeme)
+        elif type == id_type:
+            if lexeme not in self.identifiers:
+                self.identifiers.append(lexeme)
+        self.update_symbol_table_text()
+
+    # todo can have performance improvements if the order of symbols does not matter
+    def update_symbol_table_text(self):
+        text = ""
+        index_separator = ".\t"
+        index = 0
+        for keyword in self.keywords:
+            index += 1
+            text += index + index_separator + keyword + "\n"
+        for identifier in self.identifiers:
+            index += 1
+            text += index + index_separator + identifier + "\n"
+        self.sym_file.write(text)
 
     def handle_error(self, state_id: int, char: str):
         self.lex_file.write(self.state_list[state_id].get_error())
