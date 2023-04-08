@@ -1,4 +1,4 @@
-# todo : symbol table (done) , handling errors, transitions, parser alternate (done), output file
+# todo : symbol table (done) , handling errors, transitions, parser alternate (done), output file (done)
 # negar, hasti, hasti, negar
 
 class State:
@@ -46,29 +46,34 @@ class Scanner:
         self.start_pnt = -1
         self.end_pnt = -1
 
+    # returns a tuple (next_char, line_updated)
     def get_next_char(self):
+        line_updated = False
         if self.line_number == 0 or self.end_pnt == len(self.current_line) - 1:
             self.current_line = self.input_file.readline()
             if len(self.current_line) == 0:
                 return '\0'
             self.end_pnt = -1
             self.line_number += 1
+            line_updated = True
 
         if self.start_pnt == self.end_pnt:
             self.start_pnt = self.end_pnt + 1
         self.end_pnt += 1
-        return self.current_line[self.end_pnt]
+        return self.current_line[self.end_pnt], line_updated
 
-    # if a type (id, number,...) is suitable for parser, returns true, else false
+    # if a type (id, number,...) is valuable for parser, returns true, else false
     @staticmethod
     def is_type_parsable(self, type_id: int):
         return type_id not in [5, 6]
 
-    # returns the next token valuable by parser - returns None if no other token is available
-    def get_next_token(self):
+    # output:
+    #   the next token valuable for parser
+    #   None if no other token is available
+    def get_next_token(self, write_to_file=True):
         state_id = 0
         while self.state_list[state_id].terminality_status == 0:
-            next_char = self.get_next_char()
+            next_char, line_updated = self.get_next_char()
             next_state_id = self.state_list[state_id].get_next_state(next_char)
             # the id of eof state is 0
             if next_state_id == 0:
@@ -89,12 +94,14 @@ class Scanner:
         if self.is_type_parsable(type_id):
             token = self.types[type_id], lexeme
             self.install_in_symbol_table(token)
-            # todo: write the token in the output file
+            if write_to_file:
+                self.update_sym_file()
+                self.update_output_file(token, line_updated)
             return token
         else:
             return self.get_next_token()
 
-    def install_in_symbol_table(self, token, write_to_file=True):
+    def install_in_symbol_table(self, token):
         keyword_type = "KEYWORD"
         id_type = "ID"
         type, lexeme = token
@@ -104,11 +111,9 @@ class Scanner:
         elif type == id_type:
             if lexeme not in self.identifiers:
                 self.identifiers.append(lexeme)
-        if write_to_file:
-            self.update_symbol_table_text()
 
     # todo can have performance improvements if the order of symbols does not matter
-    def update_symbol_table_text(self):
+    def update_sym_file(self):
         text = ""
         index_separator = ".\t"
         index = 0
@@ -118,7 +123,25 @@ class Scanner:
         for identifier in self.identifiers:
             index += 1
             text += index + index_separator + identifier + "\n"
+
+        self.sym_file.truncate(0)
+        self.sym_file.seek(0)
         self.sym_file.write(text)
+
+    #   new_token: the token (type, lexeme) to add to output file
+    #   line_updated: a bool that shows if the token is for a new line (we should update the line numbre in file)
+    def update_output_file(self, new_token, line_updated: bool):
+        type, lexeme = new_token
+        text = ""
+        if line_updated:
+            if self.line_number != 0:
+                text += "\n"
+            text += self.line_number + ".\t"
+        else:
+            text += " "
+        text += "(" + type + ", " + lexeme + ")"
+        self.output_file.write(text)
+
 
     def handle_error(self, state_id: int, char: str):
         self.lex_file.write(self.state_list[state_id].get_error())
@@ -152,5 +175,5 @@ sym_file.close()
 
 
 # todo
-def add_states(scanner):
+def add_states(scanner: Scanner):
     pass
