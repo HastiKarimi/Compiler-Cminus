@@ -98,7 +98,7 @@ class Scanner:
         else:
             return self.get_next_token()
 
-    def install_in_symbol_table(self, token):
+    def install_in_symbol_table(self, token, write_to_file=True):
         keyword_type = "KEYWORD"
         id_type = "ID"
         type, lexeme = token
@@ -108,7 +108,8 @@ class Scanner:
         elif type == id_type:
             if lexeme not in self.identifiers:
                 self.identifiers.append(lexeme)
-        self.update_symbol_table_text()
+        if write_to_file:
+            self.update_symbol_table_text()
 
     # todo can have performance improvements if the order of symbols does not matter
     def update_symbol_table_text(self):
