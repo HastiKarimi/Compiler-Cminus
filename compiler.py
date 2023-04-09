@@ -1,13 +1,11 @@
 # todo : symbol table (done) , handling errors, transitions, parser alternate (done), output file (done)
-# negar, hasti, hasti, negar
-
 import string
 
 
 class State:
 
     def __init__(self, id: int, terminality_status: int, error_string: str = "empty", type_id: int = 0):
-        self.transitions = []
+        self.transitions = {}
         self.id = id
         self.error_str = error_string
         # terminality status:
@@ -17,16 +15,16 @@ class State:
         self.terminality_status = terminality_status
         self.type_id = type_id
 
-    def add_transition(self, ascii_ranges: [int, int], goal_state: int):
-        self.transitions.append((ascii_ranges, goal_state))
+    def add_transition(self, char: str, goal_state: int):
+        self.transitions[char] = goal_state
 
     def get_next_state(self, character: str) -> int:
-        for transition in self.transitions:
-            ascii_ranges, goal_state = transition
-            input_ascii = ord(character)
-            for (begin, end) in ascii_ranges:
-                if begin <= input_ascii <= end:
-                    return goal_state
+        next_state = -1
+        if character in self.transitions:
+            return self.transitions[character]
+        elif "all" in self.transitions:
+            return self.transitions["all"]
+
         return -1
 
     def get_error(self, character: str = "") -> str:
@@ -152,7 +150,7 @@ class Scanner:
 
     # if a type (id, number,...) is valuable for parser, returns true, else false
     @staticmethod
-    def is_type_parsable(self, type_id: int):
+    def is_type_parsable(type_id: int):
         return type_id not in [5, 6]
 
     # output:
@@ -160,6 +158,7 @@ class Scanner:
     #   None if no other token is available
     def get_next_token(self, write_to_file=True):
         state_id = 0
+        line_updated = False
         while self.state_list[state_id].terminality_status == 0:
             next_char, line_updated = self.get_next_char()
             next_state_id = self.state_list[state_id].get_next_state(next_char)
@@ -179,7 +178,7 @@ class Scanner:
         lexeme = self.current_line[self.start_pnt: self.end_pnt + 1]
         type_id = self.state_list[state_id].type_id
 
-        if self.is_type_parsable(type_id):
+        if Scanner.is_type_parsable(type_id):
             token = self.types[type_id], lexeme
             self.install_in_symbol_table(token)
             if write_to_file:
@@ -212,10 +211,10 @@ class Scanner:
         index = 0
         for keyword in self.keywords:
             index += 1
-            text += index + index_separator + keyword + "\n"
+            text += str(index) + index_separator + keyword + "\n"
         for identifier in self.identifiers:
             index += 1
-            text += index + index_separator + identifier + "\n"
+            text += str(index) + index_separator + identifier + "\n"
 
         self.sym_file.truncate(0)
         self.sym_file.seek(0)
@@ -229,7 +228,7 @@ class Scanner:
         if line_updated:
             if self.line_number != 0:
                 text += "\n"
-            text += self.line_number + ".\t"
+            text += str(self.line_number) + ".\t"
         else:
             text += " "
         text += "(" + type + ", " + lexeme + ")"
@@ -259,8 +258,3 @@ in_file.close()
 out_file.close()
 lex_file.close()
 sym_file.close()
-
-
-# todo
-def add_states(scanner: Scanner):
-    pass
