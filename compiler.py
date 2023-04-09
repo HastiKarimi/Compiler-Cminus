@@ -47,6 +47,9 @@ char_groups = [[";", ":", ",", "[", "]", "(", ")", "{", "}", "+", "-", "<"], ["*
 
 
 def make_transition(chars_id: list[int], goal_states: list[int], state: State):
+    if len(chars_id) != len(goal_states):
+        print("basi wrong")
+
     for i in range(len(chars_id)):
         for char in char_groups[i]:
             state.add_transition(char, goal_states[i])
@@ -72,6 +75,47 @@ class Scanner:
     s = State(id=3, terminality_status=0, error_string="Invalid input")
     make_transition(chars_id=[0, 1, 2, 3, 4, 5, 6, 7], goal_states=[4, 4, 4, 4, 4, 0, 3, 3],
                     state=s)
+
+    s = State(id=4, terminality_status=2, type_id=2)
+    state_list.append(s)
+
+    s = State(id=5, terminality_status=1, type_id=4)
+    state_list.append(s)
+
+    s = State(id=6, terminality_status=0)
+    make_transition(chars_id=[0, 2, 3, 4, 6, 7], goal_states=[7, 8, 7, 7, 7, 7],
+                    state=s)
+    state_list.append(s)
+
+    s = State(id=7, terminality_status=2, type_id=4)
+    state_list.append(s)
+
+    s = State(id=8, terminality_status=1, type_id=4)
+    state_list.append(s)
+
+    s = State(id=9, terminality_status=0)
+    make_transition(chars_id=[0, 1, 2, 3, 4, 5, 6, 7], goal_states=[10, 13, 10, 10, 10, 10, 10, 10],
+                    state=s)
+    state_list.append(s)
+
+    s = State(id=10, terminality_status=2, type_id=4)
+    state_list.append(s)
+
+    s = State(id=13, terminality_status=0)
+    make_transition(chars_id=[0, 1, 2, 3, 4, 6, 7], goal_states=[13, 14, 13, 13, 13, 13, 13],
+                    state=s)
+    state_list.append(s)
+
+    s = State(id=14, terminality_status=0)
+    make_transition(chars_id=[0, 1, 2, 3, 4, 6, 7], goal_states=[13, 14, 13, 15, 13, 13, 13],
+                    state=s)
+    state_list.append(s)
+
+    s = State(id=15, terminality_status=1, type_id=5)
+    state_list.append(s)
+
+    s = State(id=16, terminality_status=1, type_id=6)
+    state_list.append(s)
 
     def __init__(self, input_file, output_file, lex_file, sym_file):
         self.input_file = input_file
