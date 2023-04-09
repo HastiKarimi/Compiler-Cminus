@@ -1,18 +1,23 @@
 # todo : symbol table (done) , handling errors, transitions, parser alternate (done), output file (done)
 # negar, hasti, hasti, negar
 
+import string
+
+
 class State:
 
-    def __init__(self, id: int, error_string: str, terminality_status: int, type_id: int = 0):
+    def __init__(self, id: int, terminality_status: int, error_string: str = "empty", type_id: int = 0):
         self.transitions = []
         self.id = id
         self.error_str = error_string
-        self.terminality_status = terminality_status  # 0: is none-terminal
+        # terminality status:
+        # 0: is none-terminal
         # 1: is terminal and non star
         # 2: is terminal and with star
+        self.terminality_status = terminality_status
         self.type_id = type_id
 
-    def add_transition(self, ascii_ranges: list[(int, int)], goal_state: int):
+    def add_transition(self, ascii_ranges: [int, int], goal_state: int):
         self.transitions.append((ascii_ranges, goal_state))
 
     def get_next_state(self, character: str) -> int:
@@ -28,13 +33,51 @@ class State:
         return self.error_str
 
 
+# symbols = [";", ":", ",", "[", "]", "(", ")", "{", "}", "+", "-", "<"]  # 0
+# star = ["*"]  # 1
+# equal = ["="]  # 2
+# slash = ["/"]  # 3
+# whitespaces = ["\n", "\r", "\t", "\v", "\f", " "]  # 4
+# eof = ["\0"]  # 5
+# letters = list(string.ascii_letters)  # 6
+# digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]  # 7
+char_groups = [[";", ":", ",", "[", "]", "(", ")", "{", "}", "+", "-", "<"], ["*"], ["="], ["/"],
+               ["\n", "\r", "\t", "\v", "\f", " "], ["\0"], list(string.ascii_letters),
+               ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]]
+
+
+def make_transition(chars_id: list[int], goal_states: list[int], state: State):
+    for i in range(len(chars_id)):
+        for char in char_groups[i]:
+            state.add_transition(char, goal_states[i])
+
+
 class Scanner:
+    state_list = []
+    s = State(id=0, terminality_status=0, error_string="Invalid input")
+    make_transition(chars_id=[7, 5, 6, 0, 2, 3, 4, 1], goal_states=[1, 0, 3, 5, 6, 9, "?"],
+                    state=s)  # TODO add transition for *
+
+    state_list.append(s)
+
+    s = State(id=1, terminality_status=0, error_string="Invalid number")
+    make_transition(chars_id=[0, 1, 2, 3, 4, 5, 7], goal_states=[2, 2, 2, 2, 2, 0, 1],
+                    state=s)
+
+    state_list.append(s)
+
+    s = State(id=2, terminality_status=2, type_id=1)
+    state_list.append(s)
+
+    s = State(id=3, terminality_status=0, error_string="Invalid input")
+    make_transition(chars_id=[0, 1, 2, 3, 4, 5, 6, 7], goal_states=[4, 4, 4, 4, 4, 0, 3, 3],
+                    state=s)
+
     def __init__(self, input_file, output_file, lex_file, sym_file):
         self.input_file = input_file
         self.output_file = output_file
         self.lex_file = lex_file
         self.sym_file = sym_file
-        self.state_list = []
         self.types = {1: "NUM", 2: "ID", 3: "KEYWORD", 4: "SYMBOL", 5: "COMMENT", 6: "WHITESPACE"}
 
         # elements of the symbol table - keywords should go first.
@@ -45,6 +88,7 @@ class Scanner:
         self.current_line = ""
         self.start_pnt = -1
         self.end_pnt = -1
+        self.errors = []
 
     # returns a tuple (next_char, line_updated)
     def get_next_char(self):
@@ -101,6 +145,11 @@ class Scanner:
         else:
             return self.get_next_token()
 
+    def handle_error(self, state_id: int, char: str):
+        lexeme = self.current_line[self.start_pnt: self.end_pnt + 1]
+        self.errors.append([self.line_number, lexeme, self.state_list[state_id].get_error()])
+        # self.lex_file.write(self.state_list[state_id].get_error())
+
     def install_in_symbol_table(self, token):
         keyword_type = "KEYWORD"
         id_type = "ID"
@@ -143,11 +192,6 @@ class Scanner:
         self.output_file.write(text)
 
 
-    def handle_error(self, state_id: int, char: str):
-        self.lex_file.write(self.state_list[state_id].get_error())
-
-
-
 # initialize a scanner and call get_next_token repeatedly
 
 in_file = open("input.txt", "r")
@@ -161,7 +205,6 @@ scanner = Scanner(
     lex_file=lex_file,
     sym_file=sym_file
 )
-add_states(scanner)
 
 while True:
     token = scanner.get_next_token()
