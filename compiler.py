@@ -3,7 +3,7 @@ import string
 
 class State:
 
-    def __init__(self, id: int, terminality_status: int, error_string: str = "Invalid input", type_id: int = 0):
+    def __init__(self, id: int, terminality_status: int, type_id: int = 0, error_string: str = "Invalid input"):
         self.transitions = {}
         self.id = id
         self.error_str = error_string
@@ -64,7 +64,6 @@ class Scanner:
         self.identifiers = []
         self.sym_table_index = 0
         self.sym_table_initialized = False
-
 
         self.update_output_file_index = True
 
@@ -201,7 +200,7 @@ class Scanner:
             next_state_id = self.state_list[state_id].get_next_state(next_char)
             if next_state_id == 10:
                 next_state_id = -1
-                state_id == 10
+                state_id = 10
                 self.end_pnt -= 1
             # the id of eof state is 0
             if next_state_id == 0:
@@ -237,9 +236,12 @@ class Scanner:
 
     def handle_error(self, state_id: int, char: str):
         lexeme = self.current_line[self.start_pnt: self.end_pnt + 1]
-        if state_id == 13 or state_id==14:
+        if state_id == 13 or state_id == 14:
             lexeme = self.comment
             self.errors.append([self.comment_line, lexeme + "...", self.state_list[state_id].get_error()])
+            return
+        if state_id == 11 and char != "/":
+            self.errors.append([self.line_number, lexeme, "Invalid input"])
             return
 
         self.errors.append([self.line_number, lexeme, self.state_list[state_id].get_error()])
@@ -309,10 +311,6 @@ class Scanner:
         self.lex_file.write(text)
 
 
-
-
-
-
 # initialize a scanner and call get_next_token repeatedly
 
 in_file = open("input.txt", "r")
@@ -329,7 +327,6 @@ scanner = Scanner(
 
 while True:
     token = scanner.get_next_token()
-    # print(token)
     if token is None:
         scanner.write_error_file()
         break
