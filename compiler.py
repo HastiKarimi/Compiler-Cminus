@@ -65,6 +65,11 @@ class Scanner:
 
         # elements of the symbol table - keywords should go first.
         self.identifiers = []
+        self.sym_table_index = 0
+        self.sym_table_initialized = False
+
+
+        self.update_output_file_index = True
 
         self.line_number = 0
         self.current_line = ""
@@ -178,6 +183,8 @@ class Scanner:
         state_id = 0
         while self.state_list[state_id].terminality_status == 0:
             next_char, line_updated = self.get_next_char()
+            if line_updated:
+                self.update_output_file_index = True
             if next_char == "\n":
                 pass
             next_state_id = self.state_list[state_id].get_next_state(next_char)
@@ -206,10 +213,10 @@ class Scanner:
 
         if Scanner.is_type_parsable(type_id):
             token = self.types[type_id], lexeme
-            self.install_in_symbol_table(token)
             if write_to_file:
-                self.update_sym_file()
-                self.update_output_file(token, line_updated)
+                self.update_sym_file(token)
+                self.update_output_file(token)
+            self.install_in_symbol_table(token)
             return token
         else:
             return self.get_next_token()
@@ -221,36 +228,43 @@ class Scanner:
         # self.lex_file.write(self.state_list[state_id].get_error())
 
     def install_in_symbol_table(self, token):
-        keyword_type = "KEYWORD"
         id_type = "ID"
         type, lexeme = token
         if type == id_type:
             if lexeme not in self.identifiers:
                 self.identifiers.append(lexeme)
 
-    # todo can have performance improvements if the order of symbols does not matter
-    def update_sym_file(self):
+    def update_sym_file(self, token):
+        keyword_type = "KEYWORD"
+        id_type = "ID"
+        type, lexeme = token
+        if type != keyword_type and type != id_type:
+            return
         text = ""
         index_separator = ".\t"
-        index = 0
-        for keyword in self.keywords:
-            index += 1
-            text += str(index) + index_separator + keyword + "\n"
-        for identifier in self.identifiers:
-            index += 1
-            text += str(index) + index_separator + identifier + "\n"
 
-        self.sym_file.truncate(0)
-        self.sym_file.seek(0)
-        self.sym_file.write(text)
+        if not self.sym_table_initialized:
+            for keyword in self.keywords:
+                self.sym_table_index += 1
+                text += str(self.sym_table_index) + index_separator + keyword + "\n"
+            self.sym_table_initialized = True
+
+        if type == id_type:
+            if lexeme not in self.identifiers:
+                self.sym_table_index += 1
+                text += str(self.sym_table_index) + index_separator + lexeme + "\n"
+
+        if len(text) != 0:
+            self.sym_file.write(text)
 
     #   new_token: the token (type, lexeme) to add to output file
     #   line_updated: a bool that shows if the token is for a new line (we should update the line numbre in file)
-    def update_output_file(self, new_token, line_updated: bool):
+    def update_output_file(self, new_token):
         type, lexeme = new_token
         text = ""
-        if line_updated:
-            if self.line_number != 0:
+        if self.update_output_file_index:
+            self.update_output_file_index = False
+            if self.line_number != 1:
                 text += "\n"
             text += str(self.line_number) + ".\t"
         else:
