@@ -1,6 +1,3 @@
-# todo : symbol table (done) , handling errors, transitions, parser alternate (done), output file (done)
-# negar, hasti, hasti, negar
-
 import string
 
 
@@ -73,6 +70,9 @@ class Scanner:
 
         self.line_number = 0
         self.current_line = ""
+        self.is_eof_reached = False
+        self.comment = ""
+        self.comment_line = -1
 
         # when we have a token in substring [i, i+1, ..., j], start pointer should be i and end pointer should be j
         # if we want to read a character, we should read input[end pointer]
@@ -91,7 +91,7 @@ class Scanner:
         state_list.append(s)
 
         s = State(id=1, terminality_status=0, error_string="Invalid number")
-        make_transition(chars_id=[0, 1, 2, 3, 4, 5, 7], goal_states=[2, 2, 2, 2, 2, 0, 1],
+        make_transition(chars_id=[0, 1, 2, 3, 4, 5, 7], goal_states=[2, 2, 2, 2, 2, 2, 1],
                         state=s)
 
         state_list.append(s)
@@ -100,7 +100,7 @@ class Scanner:
         state_list.append(s)
 
         s = State(id=3, terminality_status=0)
-        make_transition(chars_id=[0, 1, 2, 3, 4, 5, 6, 7], goal_states=[4, 4, 4, 4, 4, 0, 3, 3],
+        make_transition(chars_id=[0, 1, 2, 3, 4, 5, 6, 7], goal_states=[4, 4, 4, 4, 4, 4, 3, 3],
                         state=s)
         state_list.append(s)
 
@@ -122,7 +122,7 @@ class Scanner:
         state_list.append(s)
 
         s = State(id=9, terminality_status=0)
-        make_transition(chars_id=[1], goal_states=[13],
+        make_transition(chars_id=[1, 0, 2, 3, 4, 5, 6, 7], goal_states=[13, 10, 10, 10, 10, 10, 10, 10],
                         state=s)
         state_list.append(s)
 
@@ -156,11 +156,16 @@ class Scanner:
     # returns a tuple (next_char, line_updated)
     def get_next_char(self):
         line_updated = False
+        if self.is_eof_reached:
+            return '\0', line_updated
         if self.line_number == 0 or self.end_pnt >= len(self.current_line) - 1:
-            self.current_line = self.input_file.readline()
-            if len(self.current_line) == 0:
+            new_line = self.input_file.readline()
+            if len(new_line) == 0:
                 # end of file
+                self.end_pnt += 1
+                self.is_eof_reached = True
                 return '\0', line_updated
+            self.current_line = new_line
             self.end_pnt = -1
             self.start_pnt = 0
             self.line_number += 1
@@ -180,14 +185,24 @@ class Scanner:
     #   the next token valuable for parser
     #   None if no other token is available
     def get_next_token(self, write_to_file=True):
+        self.comment_line = -1
         state_id = 0
         while self.state_list[state_id].terminality_status == 0:
             next_char, line_updated = self.get_next_char()
+
+            if state_id == 13 and self.comment_line == -1 and self.end_pnt - self.start_pnt == 6:
+                self.comment = self.current_line[self.start_pnt: self.end_pnt + 1]
+                self.comment_line = self.line_number
+
             if line_updated:
                 self.update_output_file_index = True
-            if next_char == "\n":
-                pass
+            # if next_char == "\n":
+            #     pass
             next_state_id = self.state_list[state_id].get_next_state(next_char)
+            if next_state_id == 10:
+                next_state_id = -1
+                state_id == 10
+                self.end_pnt -= 1
             # the id of eof state is 0
             if next_state_id == 0:
                 return None
@@ -204,7 +219,6 @@ class Scanner:
         lexeme = self.current_line[self.start_pnt: self.end_pnt + 1]
         type_id = self.state_list[state_id].type_id
 
-        # todo clean it up
         if type_id == 2:
             if lexeme in self.keywords:
                 type_id = 3
@@ -214,8 +228,8 @@ class Scanner:
         if Scanner.is_type_parsable(type_id):
             token = self.types[type_id], lexeme
             if write_to_file:
-                self.update_sym_file(token)
-                self.update_output_file(token)
+                self.write_sym_file(token)
+                self.write_output_file(token)
             self.install_in_symbol_table(token)
             return token
         else:
@@ -223,9 +237,13 @@ class Scanner:
 
     def handle_error(self, state_id: int, char: str):
         lexeme = self.current_line[self.start_pnt: self.end_pnt + 1]
+        if state_id == 13 or state_id==14:
+            lexeme = self.comment
+            self.errors.append([self.comment_line, lexeme + "...", self.state_list[state_id].get_error()])
+            return
+
         self.errors.append([self.line_number, lexeme, self.state_list[state_id].get_error()])
-        print("error!!!     " + self.state_list[state_id].get_error() + " the lexeme is " + lexeme)
-        # self.lex_file.write(self.state_list[state_id].get_error())
+        # print("error!!!     " + self.state_list[state_id].get_error() + " the lexeme is " + lexeme)
 
     def install_in_symbol_table(self, token):
         id_type = "ID"
@@ -234,7 +252,7 @@ class Scanner:
             if lexeme not in self.identifiers:
                 self.identifiers.append(lexeme)
 
-    def update_sym_file(self, token):
+    def write_sym_file(self, token):
         keyword_type = "KEYWORD"
         id_type = "ID"
         type, lexeme = token
@@ -259,7 +277,7 @@ class Scanner:
 
     #   new_token: the token (type, lexeme) to add to output file
     #   line_updated: a bool that shows if the token is for a new line (we should update the line numbre in file)
-    def update_output_file(self, new_token):
+    def write_output_file(self, new_token):
         type, lexeme = new_token
         text = ""
         if self.update_output_file_index:
@@ -271,6 +289,28 @@ class Scanner:
             text += " "
         text += "(" + type + ", " + lexeme + ")"
         self.output_file.write(text)
+
+    def write_error_file(self):
+        text = ""
+        if len(self.errors) == 0:
+            text = "There is no lexical error."
+        else:
+            index = 0
+            while index < len(self.errors):
+                line = self.errors[index][0]
+                text += str(line) + ".\t(" + self.errors[index][1] + ", " + self.errors[index][2] + ") "
+                index += 1
+                while index < len(self.errors) and self.errors[index][0] == line:
+                    text += "(" + self.errors[index][1] + ", " + self.errors[index][2] + ") "
+                    index += 1
+
+                text = text[:-1] + "\n"
+
+        self.lex_file.write(text)
+
+
+
+
 
 
 # initialize a scanner and call get_next_token repeatedly
@@ -289,8 +329,9 @@ scanner = Scanner(
 
 while True:
     token = scanner.get_next_token()
-    print(token)
+    # print(token)
     if token is None:
+        scanner.write_error_file()
         break
 
 in_file.close()
