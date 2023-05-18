@@ -8,11 +8,18 @@
 
 import json
 
-
 rules = []
 non_terminals = {}
 data = {}
 parser = Parser(non_terminals, rules)
+
+
+def remove_duplicates(my_list):
+    return list(dict.fromkeys(my_list))
+
+
+def is_terminal(name: str) -> bool:
+    return name in non_terminals
 
 
 class Parser:
@@ -23,17 +30,14 @@ class Parser:
         self.current_token = None
         self.current_nt = self.non_terminals["Program"]
 
-
     def initialize(self):
         global data
         with open("data.json", "r") as f:
             data = json.load(f)
 
-
         production_rules_file = open("rules.txt", "r")
         production_rule_lines = production_rules_file.readlines()
 
-        
         rule_index = 0
 
         for production_rule in production_rule_lines:
@@ -57,22 +61,15 @@ class Parser:
         rule = self.current_nt.predict_rule(self.current_token)
         # todo in parse tree, set the actions of rule as the children of current_nt
 
-
-
-    def find_nt_firsts(self, nt_name:str) -> list[str]:
-        pass # todo implement
+    def find_nt_firsts(self, nt_name: str) -> list[str]:
+        pass  # todo implement
 
     def find_nt_follows(self, nt_name: str) -> list[str]:
-        pass # todo implement
-
-
-    def is_terminal(self, name: str) -> bool:
-        pass # todo implement
+        pass  # todo implement
 
     def match_token(sefl, terminal: str):
-        pass # todo implement
-        
-    
+        pass  # todo implement
+
 
 class Rule:
     def __init__(self, rule_id: int, actions: list[str]):
@@ -93,8 +90,7 @@ class Rule:
                 parser.match_token(action)
             else:
                 parser.call_nt(action)
-                
-        
+
 
 class Nonterminal:
     def __init__(self, name: str, rule_ids: list[int]):
@@ -107,35 +103,32 @@ class Nonterminal:
 
     def find_rule_firsts(self, rule_id: int) -> list[str]:
         rule = rules[rule_id]
-        if rule.get_actions()[0] == 'EPSILON':
+
+        if rule.get_actions()[0] == 'EPSILON':  # the rule itself is epsilon
             return data['follow'][self.name]
 
-        # TODO handle if every action has epsilon
-        first_rule = []
+        rule_first = []
         for action in rule.get_actions():
-            if action not in non_terminals:
-                first_rule.append(action)
-                return first_rule
+            if is_terminal(action):
+                rule_first.append(action)
+                return remove_duplicates(rule_first)
             else:
                 # then action is a non-terminal
-                first_action = data['first'][action]
-                if 'EPSILON' in first_action:
-                    first_rule = first_action.remove('EPSILON') + first_rule
+                action_first = data['first'][action]
+                if 'EPSILON' in action_first:
+                    rule_first = action_first.remove('EPSILON') + rule_first
                 else:
-                    first_rule = first_action + first_rule
-                    return first_rule
+                    rule_first = action_first + rule_first
+                    remove_duplicates(rule_first)
 
-        return first_rule
-
+        return remove_duplicates(rule_first + data['follow'][self.name])
 
     def predict_rule(self, current_token: str) -> int:
         # predicts the id of the rule to apply based on the current token
         pass
-    
+
     def proceed_transition(self):
         applying_rule_id = self.predict_rule()
         rule = rules[applying_rule_id]
         rule.apply()
         # todo error recovery process
-
-
