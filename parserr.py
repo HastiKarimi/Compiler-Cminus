@@ -41,23 +41,25 @@ def is_terminal(name: str) -> bool:
 
 class Parser:
     def __init__(self, errors_file, scanner) -> None:
-        self.non_terminals = non_terminals
         self.rules = rules
         self.errors_file = errors_file
         self.initialize()
         self.current_token = None  # (type, lexeme)
         self.current_line = None
         self.scanner = scanner
-        self.current_nt = self.non_terminals[starting_nt]
+        self.current_nt = non_terminals[starting_nt]
         self.parse_tree = []
         self.syntax_error_output = ""
 
     def initialize(self):
         global data
+        global non_terminals
         with open("data.json", "r") as f:
             data = json.load(f)
+
         # TODO : in data, $ is the follow of program. But in syntax trees of test cases, it is not like that.
 
+        non_terminals = dict.fromkeys(data["non-terminal"])
         production_rules_file = open("rules.txt", "r")
         production_rule_lines = production_rules_file.readlines()
 
@@ -74,7 +76,7 @@ class Parser:
                 nt_rule_list.append(rule_index)
                 rule_index += 1
 
-            self.non_terminals[nt] = Nonterminal(nt, nt_rule_list)
+            non_terminals[nt] = Nonterminal(nt, nt_rule_list)
 
     def run(self):
         nt_list = []
@@ -89,9 +91,12 @@ class Parser:
     def call_nt(self, nt_name: str, nt_list: list):
         my_list = nt_list
         self.current_nt = non_terminals[nt_name]
-        rule = self.current_nt.predict_rule(self.current_token)
-        if rule is None:
-            if self.current_token[0] in self.current_nt.follows:
+        rule_id = self.current_nt.predict_rule(self.current_token)
+        if rule_id is None:
+            token_name = self.current_token[0]
+            if token_name in ['KEYWORD', 'SYMBOL']:
+                token_name = self.current_token[1]
+            if token_name in self.current_nt.follows:
                 self.report_syntax_error(missing_error_keyword, self.current_nt.name, self.current_line)
                 return  # assume that the current nt is found and we should continue
             else:
@@ -99,7 +104,7 @@ class Parser:
                 self.update_token()  # assume there was an illegal input and ignore it
                 self.call_nt(nt_name, nt_list)
                 return
-
+        rule = rules[rule_id]
         my_list.extend(rule.get_actions())
         for i in range(len(my_list)):
             action = my_list[i]
@@ -111,14 +116,22 @@ class Parser:
                 self.call_nt(action, child_nt_list)
 
     def match_action(self, terminal_action: str):
-        if self.current_token[1] is eof_keyword:
+        if terminal_action == epsilon_keyword:
+            return
+        if self.current_token[1] == eof_keyword and terminal_action is not eof_keyword:
             self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
-        elif self.current_token[0] is not terminal_action:
-            self.report_syntax_error(terminal_action, self.current_token[0], self.current_line)
+        else:
+            token_name = self.current_token[0]
+            if token_name in ['KEYWORD', 'SYMBOL', 'eof']:
+                token_name = self.current_token[1]
+            if token_name != terminal_action:
+                self.report_syntax_error(missing_error_keyword, token_name, self.current_line)
         self.update_token()
 
     def update_token(self):
-        self.current_token, self.current_line = self.scanner.get_next_token(write_to_file=False)
+        if self.current_token == ';':
+            print("here")
+        self.current_token, self.current_line = self.scanner.get_next_token(write_to_file=True)
 
     def report_syntax_error(self, error_type, token_name, line_number):
         error_message = "#" + str(line_number) + " : syntax error, " + str(error_type) + " " \
@@ -128,11 +141,13 @@ class Parser:
     def write_syntax_errors(self):
         if self.syntax_error_output == '':
             self.syntax_error_output = "There is no syntax error."
-        self.errors_file.wirte(self.syntax_error_output)
+        self.errors_file.write(self.syntax_error_output)
         self.errors_file.close()  # TODO who is responsible for closing this file? Parser or compiler?
 
     def write_parse_tree(self):
         pass
+        # Parser.draw_subtree(node=self.parse_tree[0][0], children=self.parse_tree[0][1], ancestors_open=[],
+        #                     last_child=False)
 
     @staticmethod
     def draw_subtree(node, children, ancestors_open, last_child):
@@ -223,7 +238,7 @@ class Nonterminal:
                 # then action is a non-terminal
                 action_first = data[first_keyword][action]
                 if epsilon_keyword in action_first:
-                    if index is not len(action) - 1:
+                    if index is not len(actions) - 1:
                         rule_first += [val for val in action_first if val != epsilon_keyword]
                     else:
                         # If we're here, all the actions were terminals that contained epsilon in their firsts.
@@ -231,17 +246,18 @@ class Nonterminal:
                         rule_first += action_first
                 else:
                     rule_first = action_first + rule_first
-                    remove_duplicates(rule_first)
+                    return remove_duplicates(rule_first)
 
-        return remove_duplicates(rule_first + data[follow_keyword][self.name])
+        return remove_duplicates(rule_first)
 
     def predict_rule(self, current_token: str) -> int:
         # predicts the id of the rule to apply based on the current token. If no rule was found, return None
         for rule_id in self.rule_ids:
             rule = rules[rule_id]
-            if current_token[0] in rule.firsts:
+            token_name = current_token[0]
+            if current_token[0] in ['KEYWORD', 'SYMBOL']:
+                token_name = current_token[1]
+            if token_name in rule.firsts:
                 return rule_id
         return self.epsilon_rule
         # it's either None or one of the rules that has epsilon in its first set
-
-

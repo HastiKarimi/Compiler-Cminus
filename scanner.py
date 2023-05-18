@@ -20,7 +20,7 @@ class State:
     def get_next_state(self, character: str) -> int:
         if character in self.transitions:
             return self.transitions[character]
-        elif "all" in self.transitions and character != "\0":
+        elif "all" in self.transitions and character != "$":
             return self.id
         return -1
 
@@ -33,12 +33,12 @@ class State:
 # equal = ["="]  # 2
 # slash = ["/"]  # 3
 # whitespaces = ["\n", "\r", "\t", "\v", "\f", " "]  # 4
-# eof = ["\0"]  # 5
+# eof = ["$"]  # 5
 # letters = list(string.ascii_letters)  # 6
 # digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]  # 7
 # every other thing # 8
 char_groups = [[";", ":", ",", "[", "]", "(", ")", "{", "}", "+", "-", "<"], ["*"], ["="], ["/"],
-               ["\n", "\r", "\t", "\v", "\f", " "], ["\0"], list(string.ascii_letters),
+               ["\n", "\r", "\t", "\v", "\f", " "], ["$"], list(string.ascii_letters),
                ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], ["all"]]
 
 
