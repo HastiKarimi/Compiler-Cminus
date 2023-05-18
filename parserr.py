@@ -63,6 +63,7 @@ class Parser:
         my_list = nt_list
         self.current_nt = non_terminals[nt_name]
         rule = self.current_nt.predict_rule(self.current_token)
+        # TODO if no rule was predicted go to panic mode
         my_list.extend(rule.get_actions())
         for i in range(len(my_list)):
             action = my_list[i]
@@ -73,11 +74,11 @@ class Parser:
                 my_list[i] = (action, child_nt_list)
                 self.call_nt(action, child_nt_list)
 
+    def match_action(self, terminal_action: str):
+        if self.current_token == terminal_action:
+            self.current_token = scanner.get_next_token()
 
-
-
-    def match_action(sefl, terminal_action: str):
-        pass  # todo implement
+        # TODO else go to panic mode
 
 
 class Rule:
