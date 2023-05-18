@@ -1,5 +1,5 @@
 from scanner import Scanner
-
+from parserr import Parser
 
 # initialize a scanner and call get_next_token repeatedly
 
@@ -7,6 +7,7 @@ in_file = open("input.txt", "r")
 out_file = open("tokens.txt", "w+")
 lex_file = open("lexical_errors.txt", "w+")
 sym_file = open("symbol_table.txt", "w+")
+parser_errors_file = open("syntax_errors.txt", "w+")
 
 scanner = Scanner(
     input_file=in_file,
@@ -15,13 +16,12 @@ scanner = Scanner(
     sym_file=sym_file
 )
 
-while True:
-    token = scanner.get_next_token()
-    if token is None:
-        scanner.write_error_file()
-        break
+parser = Parser(errors_file=parser_errors_file, scanner=scanner)
+parser.run()
 
 in_file.close()
 out_file.close()
 lex_file.close()
 sym_file.close()
+parser_errors_file.close()
+

@@ -21,9 +21,9 @@ def is_terminal(name: str) -> bool:
 
 
 class Parser:
-    def __init__(self, non_terminals_dict, rules_list, errors_file, scanner) -> None:
-        self.non_terminals = non_teminals_dict
-        self.rules = rules_list
+    def __init__(self, errors_file, scanner) -> None:
+        self.non_terminals = non_terminals
+        self.rules = rules
         self.errors_file = errors_file
         self.initialize()
         self.current_token = None  # (type, lexeme)
@@ -91,14 +91,14 @@ class Parser:
                 self.call_nt(action, child_nt_list)
 
     def match_action(self, terminal_action: str):
-        if current_token[1] is eof_keyword:
+        if self.current_token[1] is eof_keyword:
             self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
         elif self.current_token[0] is not terminal_action:
             self.report_syntax_error(terminal_action, self.current_token[0], self.current_line)
         self.update_token()
 
     def update_token(self):
-        self.current_token, self.current_line = self.scanner.get_next_token()
+        self.current_token, self.current_line = self.scanner.get_next_token(write_to_file=False)
 
     def report_syntax_error(self, error_type, token_name, line_number):
         error_message = "#" + str(line_number) + " : syntax error, " + str(error_type) + " " \
@@ -121,7 +121,7 @@ class Parser:
         Parser.print_node_line(ancestors_open, last_child, node)
 
         ancestors_open.append(last_child)
-        for index in rang(len(children)):
+        for index in range(len(children)):
             child = children[index]
             if type(child[1]) == list:
                 # means the child was a non-terminal
@@ -182,7 +182,7 @@ class Nonterminal:
         self.epsilon_rule = None
         for i in rule_ids:
             rule_firsts = self.find_rule_firsts(i)
-            if not self.has_epsilon_rule and epsilon_keyword in rule_firsts:
+            if self.epsilon_rule is None and epsilon_keyword in rule_firsts:
                 self.epsilon_rule = i
             rules[i].set_first(rule_firsts)
 
@@ -235,7 +235,6 @@ first_keyword = 'first'
 follow_keyword = 'follow'
 eof_keyword = '$'
 
-errors_file = open("syntax_errors.txt", "w+")
 illegal_error_keyword = "illegal"
 missing_error_keyword = "missing"
 unexpected_error_keyword = "unexpected"
@@ -244,6 +243,3 @@ parse_tree_vertical = '│'
 parse_tree_horizontal = '──'
 parse_tree_corner = '└'
 parse_tree_middle = '├'
-
-scanner = None  # TODO
-parser = Parser(non_terminals, rules, errors_file, scanner)

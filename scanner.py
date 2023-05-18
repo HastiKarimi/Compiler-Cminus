@@ -1,5 +1,6 @@
 import string
 
+
 class State:
 
     def __init__(self, id: int, terminality_status: int, type_id: int = 0, error_string: str = "Invalid input"):
@@ -8,7 +9,7 @@ class State:
         self.error_str = error_string
         # terminality status:
         # 0: is none-terminal
-        # 1: is terminal and non star
+        # 1: is terminal and non-star
         # 2: is terminal and with star
         self.terminality_status = terminality_status
         self.type_id = type_id
@@ -50,7 +51,6 @@ def make_transition(chars_id: list[int], goal_states: list[int], state: State):
             state.add_transition(char, goal_states[i])
 
 
-
 class Scanner:
 
     def __init__(self, input_file, output_file, lex_file, sym_file):
@@ -60,7 +60,6 @@ class Scanner:
         self.sym_file = sym_file
         self.types = {1: "NUM", 2: "ID", 3: "KEYWORD", 4: "SYMBOL", 5: "COMMENT", 6: "WHITESPACE"}
         self.keywords = ["break", "else", "if", "int", "repeat", "return", "until", "void"]
-
 
         # elements of the symbol table - keywords should go first.
         self.identifiers = []
@@ -158,14 +157,14 @@ class Scanner:
     def get_next_char(self):
         line_updated = False
         if self.is_eof_reached:
-            return '\0', line_updated
+            return '$', line_updated
         if self.line_number == 0 or self.end_pnt >= len(self.current_line) - 1:
             new_line = self.input_file.readline()
             if len(new_line) == 0:
                 # end of file
                 self.end_pnt += 1
                 self.is_eof_reached = True
-                return '\0', line_updated
+                return '$', line_updated
             self.current_line = new_line
             self.end_pnt = -1
             self.start_pnt = 0
@@ -206,7 +205,7 @@ class Scanner:
                 self.end_pnt -= 1
             # the id of eof state is 0
             if next_state_id == 0:
-                return None
+                return ('eof', '$'), self.line_number  # todo fine?
             if next_state_id == -1:
                 self.handle_error(state_id, next_char)
                 self.start_pnt = self.end_pnt + 1
@@ -232,7 +231,7 @@ class Scanner:
                 self.write_sym_file(token)
                 self.write_output_file(token)
             self.install_in_symbol_table(token)
-            return token
+            return token, self.line_number  # todo fine?
         else:
             return self.get_next_token()
 
