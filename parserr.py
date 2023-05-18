@@ -11,13 +11,32 @@
 
 import json
 
+rules = []
+non_terminals = {}
+data = {}
+
+starting_nt = 'Program'
+epsilon_keyword = 'EPSILON'
+first_keyword = 'first'
+follow_keyword = 'follow'
+eof_keyword = '$'
+
+illegal_error_keyword = "illegal"
+missing_error_keyword = "missing"
+unexpected_error_keyword = "unexpected"
+
+parse_tree_vertical = '│'
+parse_tree_horizontal = '──'
+parse_tree_corner = '└'
+parse_tree_middle = '├'
+
 
 def remove_duplicates(my_list):
     return list(dict.fromkeys(my_list))
 
 
 def is_terminal(name: str) -> bool:
-    return name in non_terminals
+    return name not in non_terminals
 
 
 class Parser:
@@ -60,6 +79,7 @@ class Parser:
     def run(self):
         nt_list = []
         self.parse_tree.append((self.current_nt.name, nt_list))
+        self.update_token()
         self.call_nt(self.current_nt.name, nt_list)
         # after everything is finished, and we have probably faced $,
         # we should write syntax errors and parse tree in file
@@ -182,7 +202,7 @@ class Nonterminal:
         self.epsilon_rule = None
         for i in rule_ids:
             rule_firsts = self.find_rule_firsts(i)
-            if self.epsilon_rule is None and epsilon_keyword in rule_firsts:
+            if (self.epsilon_rule is None) and (epsilon_keyword in rule_firsts):
                 self.epsilon_rule = i
             rules[i].set_first(rule_firsts)
 
@@ -190,7 +210,7 @@ class Nonterminal:
         rule = rules[rule_id]
 
         if rule.get_actions()[0] == epsilon_keyword:  # the rule itself is epsilon
-            return rule.get_actions
+            return rule.get_actions()
 
         rule_first = []
         actions = rule.get_actions()
@@ -204,7 +224,7 @@ class Nonterminal:
                 action_first = data[first_keyword][action]
                 if epsilon_keyword in action_first:
                     if index is not len(action) - 1:
-                        rule_first += action_first.remove(epsilon_keyword)
+                        rule_first += [val for val in action_first if val != epsilon_keyword]
                     else:
                         # If we're here, all the actions were terminals that contained epsilon in their firsts.
                         # So epsilon must be included in rule_first
@@ -225,21 +245,3 @@ class Nonterminal:
         # it's either None or one of the rules that has epsilon in its first set
 
 
-rules = []
-non_terminals = {}
-data = {}
-
-starting_nt = 'Program'
-epsilon_keyword = 'EPSILON'
-first_keyword = 'first'
-follow_keyword = 'follow'
-eof_keyword = '$'
-
-illegal_error_keyword = "illegal"
-missing_error_keyword = "missing"
-unexpected_error_keyword = "unexpected"
-
-parse_tree_vertical = '│'
-parse_tree_horizontal = '──'
-parse_tree_corner = '└'
-parse_tree_middle = '├'
