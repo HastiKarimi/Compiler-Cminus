@@ -11,12 +11,12 @@ import json
 
 rules = []
 non_terminals = {}
+data = {}
 parser = Parser(non_terminals, rules)
 
 
 class Parser:
     def __init__(self, non_teminals_dict, rules_list) -> None:
-        self.data = {}
         self.non_terminals = non_teminals_dict
         self.rules = rules_list
         self.initialize()
@@ -25,8 +25,9 @@ class Parser:
 
 
     def initialize(self):
+        global data
         with open("data.json", "r") as f:
-            self.data = json.load(f)
+            data = json.load(f)
 
 
         production_rules_file = open("rules.txt", "r")
@@ -64,8 +65,6 @@ class Parser:
     def find_nt_follows(self, nt_name: str) -> list[str]:
         pass # todo implement
 
-    def find_rule_firsts(self, rule_id: int) -> list[str]:
-        pass # todo implement
 
     def is_terminal(self, name: str) -> bool:
         pass # todo implement
@@ -79,7 +78,14 @@ class Rule:
     def __init__(self, rule_id: int, actions: list[str]):
         self.actions = actions
         self.id = rule_id
-        self.firsts = parser.find_rule_firsts(rule_id)
+        self.firsts = []
+        # self.firsts = parser.find_rule_firsts(rule_id)
+
+    def get_actions(self):
+        return self.actions
+
+    def set_first(self, list_firsts: list[str]):
+        self.firsts = list_firsts
 
     def apply(self):
         for action in self.actions:
@@ -94,8 +100,33 @@ class Nonterminal:
     def __init__(self, name: str, rule_ids: list[int]):
         self.name = name
         self.rule_ids = rule_ids
-        self.firsts = parser.find_nt_firsts(name)
-        self.follows = parser.find_nt_follows(name)
+        self.firsts = data['first'][self.name]
+        self.follows = data['follow'][self.name]
+        for i in rule_ids:
+            rules[i].set_first(self.find_rule_firsts(i))
+
+    def find_rule_firsts(self, rule_id: int) -> list[str]:
+        rule = rules[rule_id]
+        if rule.get_actions()[0] == 'EPSILON':
+            return data['follow'][self.name]
+
+        # TODO handle if every action has epsilon
+        first_rule = []
+        for action in rule.get_actions():
+            if action not in non_terminals:
+                first_rule.append(action)
+                return first_rule
+            else:
+                # then action is a non-terminal
+                first_action = data['first'][action]
+                if 'EPSILON' in first_action:
+                    first_rule = first_action.remove('EPSILON') + first_rule
+                else:
+                    first_rule = first_action + first_rule
+                    return first_rule
+
+        return first_rule
+
 
     def predict_rule(self, current_token: str) -> int:
         # predicts the id of the rule to apply based on the current token
