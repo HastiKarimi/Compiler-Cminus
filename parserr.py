@@ -80,7 +80,7 @@ class Parser:
 
     def run(self):
         nt_list = []
-        self.parse_tree.append((self.current_nt.name, nt_list))
+        self.parse_tree.extend([(self.current_nt.name, nt_list), '$'])
         self.update_token()
         self.call_nt(self.current_nt.name, nt_list)
         # after everything is finished, and we have probably faced $,
@@ -108,6 +108,7 @@ class Parser:
         my_list.extend(rule.get_actions())
         for i in range(len(my_list)):
             action = my_list[i]
+
             if is_terminal(action):
                 self.match_action(action)
             else:
