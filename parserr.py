@@ -26,10 +26,10 @@ class Parser:
         self.rules = rules_list
         self.errors_file = errors_file
         self.initialize()
-        self.current_token = None
+        self.current_token = None  # (type, lexeme)
         self.current_line = None
         self.scanner = scanner
-        self.current_nt = self.non_terminals["Program"]
+        self.current_nt = self.non_terminals[starting_nt]
         self.parse_tree = []
         self.syntax_error_output = ""
 
@@ -71,8 +71,8 @@ class Parser:
         self.current_nt = non_terminals[nt_name]
         rule = self.current_nt.predict_rule(self.current_token)
         if rule is None:
-            if self.current_token in self.current_nt.follows:
-                self.report_syntax_error(missing_error_keyword, self.current_token.name, self.current_line)
+            if self.current_token[0] in self.current_nt.follows:
+                self.report_syntax_error(missing_error_keyword, self.current_nt.name, self.current_line)
                 return  # assume that the current nt is found and we should continue
             else:
                 self.report_syntax_error(illegal_error_keyword, self.current_token, self.current_line)
@@ -91,10 +91,10 @@ class Parser:
                 self.call_nt(action, child_nt_list)
 
     def match_action(self, terminal_action: str):
-        if current_token is eof_keyword:
+        if current_token[1] is eof_keyword:
             self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
-        elif self.current_token is not terminal_action:
-            self.report_syntax_error(terminal_action, self.current_token, self.current_line)
+        elif self.current_token[0] is not terminal_action:
+            self.report_syntax_error(terminal_action, self.current_token[0], self.current_line)
         self.update_token()
 
     def update_token(self):
@@ -102,7 +102,7 @@ class Parser:
 
     def report_syntax_error(self, error_type, token_name, line_number):
         error_message = "#" + str(line_number) + " : syntax error, " + str(error_type) + " " \
-                        + str(missing_token_name) + "\n"
+                        + str(token_name) + "\n"
         self.syntax_error_output += error_message
 
     def write_syntax_errors(self):
@@ -112,7 +112,53 @@ class Parser:
         self.errors_file.close()  # TODO who is responsible for closing this file? Parser or compiler?
 
     def write_parse_tree(self):
-        pass # TODO implement
+        pass
+
+    @staticmethod
+    def draw_subtree(node, children, ancestors_open, last_child):
+        # children is a list of tuples. if the child is a terminal, the tuple is (token type, lexeme)
+        # if the child is a non-terminal, the tuple is (node name, [its children])
+        Parser.print_node_line(ancestors_open, last_child, node)
+
+        ancestors_open.append(last_child)
+        for index in rang(len(children)):
+            child = children[index]
+            if type(child[1]) == list:
+                # means the child was a non-terminal
+                next_node = child[0]
+                next_children = child[1]
+                next_last_child = (index == len(children) - 1)
+                Parser.draw_subtree(node=next_node, children=next_children, ancestors_open=ancestors_open,
+                                    last_child=next_last_child)
+            else:
+                # the child is a terminal
+                next_node = child
+                next_children = []
+                next_last_child = (index == len(children) - 1)
+                Parser.draw_subtree(node=next_node, children=next_children, ancestors_open=ancestors_open,
+                                    last_child=next_last_child)
+
+    @staticmethod
+    def print_node_line(ancestors_open, last_child, node):
+        line = ''
+        for ancestor_index in range(len(ancestors_open) - 1):
+            is_open = ancestors_open[ancestor_index]
+            if is_open:
+                line += parse_tree_vertical
+            else:
+                line += ' '
+            line += '   '
+        if last_child:
+            line += parse_tree_corner
+        else:
+            line += parse_tree_middle
+        line += parse_tree_horizontal
+        if is_terminal(node):
+            line += ' (' + str(node[0]) + ', ' + str(node[1]) + ')'
+        else:
+            line += str(node)
+        print(line)
+
 
 class Rule:
     def __init__(self, rule_id: int, actions: list[str]):
@@ -173,7 +219,7 @@ class Nonterminal:
         # predicts the id of the rule to apply based on the current token. If no rule was found, return None
         for rule_id in self.rule_ids:
             rule = rules[rule_id]
-            if current_token in rule.firsts:
+            if current_token[0] in rule.firsts:
                 return rule_id
         return self.epsilon_rule
         # it's either None or one of the rules that has epsilon in its first set
@@ -183,6 +229,7 @@ rules = []
 non_terminals = {}
 data = {}
 
+starting_nt = 'Program'
 epsilon_keyword = 'EPSILON'
 first_keyword = 'first'
 follow_keyword = 'follow'
@@ -192,6 +239,11 @@ errors_file = open("syntax_errors.txt", "w+")
 illegal_error_keyword = "illegal"
 missing_error_keyword = "missing"
 unexpected_error_keyword = "unexpected"
+
+parse_tree_vertical = '│'
+parse_tree_horizontal = '──'
+parse_tree_corner = '└'
+parse_tree_middle = '├'
 
 scanner = None  # TODO
 parser = Parser(non_terminals, rules, errors_file, scanner)
