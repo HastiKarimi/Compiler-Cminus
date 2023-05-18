@@ -29,6 +29,7 @@ class Parser:
         self.initialize()
         self.current_token = None
         self.current_nt = self.non_terminals["Program"]
+        self.parse_tree = []
 
     def initialize(self):
         global data
@@ -54,20 +55,28 @@ class Parser:
             self.non_terminals[nt] = Nonterminal(nt, nt_rule_list)
 
     def run(self):
-        pass
+        nt_list = []
+        self.parse_tree.append((self.current_nt.name, nt_list))
+        self.call_nt(self.current_nt.name, nt_list)
 
-    def call_nt(self, nt_name: str):
+    def call_nt(self, nt_name: str, nt_list: list):
+        my_list = nt_list
         self.current_nt = non_terminals[nt_name]
         rule = self.current_nt.predict_rule(self.current_token)
-        # todo in parse tree, set the actions of rule as the children of current_nt
+        my_list.extend(rule.get_actions())
+        for i in range(len(my_list)):
+            action = my_list[i]
+            if is_terminal(action):
+                self.match_action(action)
+            else:
+                child_nt_list = []
+                my_list[i] = (action, child_nt_list)
+                self.call_nt(action, child_nt_list)
 
-    def find_nt_firsts(self, nt_name: str) -> list[str]:
-        pass  # todo implement
 
-    def find_nt_follows(self, nt_name: str) -> list[str]:
-        pass  # todo implement
 
-    def match_token(sefl, terminal: str):
+
+    def match_action(sefl, terminal_action: str):
         pass  # todo implement
 
 
