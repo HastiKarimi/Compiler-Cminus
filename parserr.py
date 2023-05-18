@@ -21,21 +21,23 @@ def is_terminal(name: str) -> bool:
 
 
 class Parser:
-    def __init__(self, non_terminals_dict, rules_list, errors_file) -> None:
+    def __init__(self, non_terminals_dict, rules_list, errors_file, scanner) -> None:
         self.non_terminals = non_teminals_dict
         self.rules = rules_list
         self.errors_file = errors_file
         self.initialize()
         self.current_token = None
         self.current_line = None
-        self.scanner = None  # todo
+        self.scanner = scanner
         self.current_nt = self.non_terminals["Program"]
         self.parse_tree = []
+        self.syntax_error_output = ""
 
     def initialize(self):
         global data
         with open("data.json", "r") as f:
             data = json.load(f)
+        # TODO : in data, $ is the follow of program. But in syntax trees of test cases, it is not like that.
 
         production_rules_file = open("rules.txt", "r")
         production_rule_lines = production_rules_file.readlines()
@@ -59,6 +61,10 @@ class Parser:
         nt_list = []
         self.parse_tree.append((self.current_nt.name, nt_list))
         self.call_nt(self.current_nt.name, nt_list)
+        # after everything is finished, and we have probably faced $,
+        # we should write syntax errors and parse tree in file
+        self.write_syntax_errors()
+        self.write_parse_tree()
 
     def call_nt(self, nt_name: str, nt_list: list):
         my_list = nt_list
@@ -66,10 +72,10 @@ class Parser:
         rule = self.current_nt.predict_rule(self.current_token)
         if rule is None:
             if self.current_token in self.current_nt.follows:
-                self.report_missing_token(self.current_token.name, self.current_line)
+                self.report_syntax_error(missing_error_keyword, self.current_token.name, self.current_line)
                 return  # assume that the current nt is found and we should continue
             else:
-                self.report_illegal_token(self.current_token, self.current_line)
+                self.report_syntax_error(illegal_error_keyword, self.current_token, self.current_line)
                 self.update_token()  # assume there was an illegal input and ignore it
                 self.call_nt(nt_name, nt_list)
                 return
@@ -85,22 +91,28 @@ class Parser:
                 self.call_nt(action, child_nt_list)
 
     def match_action(self, terminal_action: str):
-        # TODO what happens if current token is $?
-        if self.current_token is not terminal_action:
-            self.report_missing_token(self.current_token, self.current_line)
+        if current_token is eof_keyword:
+            self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
+        elif self.current_token is not terminal_action:
+            self.report_syntax_error(terminal_action, self.current_token, self.current_line)
         self.update_token()
 
     def update_token(self):
         self.current_token, self.current_line = self.scanner.get_next_token()
 
-    def report_missing_token(self, missing_token_name: str, line_number: int):
-        error_message = "#" + str(line_number) + " : syntax error, missing " + str(missing_token_name)
-        self.errors_file.write(error_message)
+    def report_syntax_error(self, error_type, token_name, line_number):
+        error_message = "#" + str(line_number) + " : syntax error, " + str(error_type) + " " \
+                        + str(missing_token_name) + "\n"
+        self.syntax_error_output += error_message
 
-    def report_illegal_token(self, illegal_token: str, line_number: int):
-        error_message = "#" + str(line_number) + " : syntax error, illegal " + str(missing_token_name)
-        self.errors_file.write(error_message)
+    def write_syntax_errors(self):
+        if self.syntax_error_output == '':
+            self.syntax_error_output = "There is no syntax error."
+        self.errors_file.wirte(self.syntax_error_output)
+        self.errors_file.close()  # TODO who is responsible for closing this file? Parser or compiler?
 
+    def write_parse_tree(self):
+        pass # TODO implement
 
 class Rule:
     def __init__(self, rule_id: int, actions: list[str]):
@@ -170,8 +182,16 @@ class Nonterminal:
 rules = []
 non_terminals = {}
 data = {}
+
 epsilon_keyword = 'EPSILON'
 first_keyword = 'first'
 follow_keyword = 'follow'
+eof_keyword = '$'
+
 errors_file = open("syntax_errors.txt", "w+")
-parser = Parser(non_terminals, rules, errors_file)
+illegal_error_keyword = "illegal"
+missing_error_keyword = "missing"
+unexpected_error_keyword = "unexpected"
+
+scanner = None  # TODO
+parser = Parser(non_terminals, rules, errors_file, scanner)
