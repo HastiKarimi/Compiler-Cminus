@@ -30,6 +30,8 @@ parse_tree_horizontal = '──'
 parse_tree_corner = '└'
 parse_tree_middle = '├'
 
+eof_reached = False
+
 
 def remove_duplicates(my_list):
     return list(dict.fromkeys(my_list))
@@ -88,7 +90,7 @@ class Parser:
 
     def run(self):
         nt_list = []
-        self.parse_tree.extend([(self.current_nt.name, nt_list), ('eof', '$')])
+        self.parse_tree.extend([(self.current_nt.name, nt_list)])
         self.update_token()
         self.call_nt(self.current_nt.name, nt_list)
         # after everything is finished, and we have probably faced $,
@@ -98,9 +100,10 @@ class Parser:
     def finish(self):
         self.write_syntax_errors()
         self.write_parse_tree()
-        exit(0)
+        # exit(0)
 
     def call_nt(self, nt_name: str, nt_list: list):
+        global eof_reached
         my_list = nt_list
         self.current_nt = non_terminals[nt_name]
         rule_id = self.current_nt.predict_rule(self.current_token)
@@ -110,8 +113,10 @@ class Parser:
                 self.report_syntax_error(missing_error_keyword, self.current_nt.name, self.current_line)
                 return  # assume that the current nt is found, and we should continue
             elif token_name == eof_keyword:
-                self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
-                self.finish()
+                if not eof_reached:
+                    self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
+                    eof_reached = True
+                    # self.finish()
                 return
             else:
                 self.report_syntax_error(illegal_error_keyword, get_token_name(self.current_token), self.current_line)
@@ -130,25 +135,32 @@ class Parser:
                 child_nt_list = []
                 my_list[i] = (action, child_nt_list)
                 self.call_nt(action, child_nt_list)
+                if len(child_nt_list) == 0:
+                    my_list[i] = None
+
+        # remove None values
+        while None in my_list:
+            my_list.remove(None)
 
     def match_action(self, terminal_action: str):
-        if terminal_action == epsilon_keyword:
-            return
+        global eof_reached
         if self.current_token[1] == eof_keyword and terminal_action is not eof_keyword:
             self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
-            self.finish()
-            return
+            eof_reached = True
+            # self.finish()
+            return False
         else:
             token_name = get_token_name(self.current_token)
+            if token_name == '$':
+                eof_reached = True
             if token_name != terminal_action:
                 self.report_syntax_error(missing_error_keyword, terminal_action, self.current_line)
-                return
+                return False
         self.update_token()
+        return True
 
     def update_token(self):
         self.current_token, self.current_line = self.scanner.get_next_token(write_to_file=True)
-        # if self.current_token[1] == '}':
-        #     print("here")
 
     def report_syntax_error(self, error_type, token_name, line_number):
         error_message = "#" + str(line_number) + " : syntax error, " + str(error_type) + " " \
@@ -162,14 +174,12 @@ class Parser:
 
     def write_parse_tree(self):
         lines_list = []
-        Parser.draw_subtree(lines_list=lines_list, node=self.parse_tree[0][0], children=self.parse_tree[0][1], ancestors_open=[],
-                            last_child=False, first_node=True)
+        self.draw_subtree(lines_list=lines_list, node=self.parse_tree[0][0], children=self.parse_tree[0][1],
+                            ancestors_open=[], last_child=False, first_node=True)
         for line in lines_list:
             self.parse_tree_file.write(line + "\n")
 
-
-    @staticmethod
-    def draw_subtree(lines_list, node, children, ancestors_open, last_child, first_node=False):
+    def draw_subtree(self, lines_list, node, children, ancestors_open, last_child, first_node=False):
         # children is a list of tuples. if the child is a terminal, the tuple is (token type, lexeme)
         # if the child is a non-terminal, the tuple is (node name, [its children])
         Parser.print_node_line(lines_list, ancestors_open, last_child, node, first_node)
@@ -184,19 +194,23 @@ class Parser:
         new_ancestors_open.append(True)
         for index in range(len(children)):
             child = children[index]
+            if child is None:
+                print("hey")
             if type(child[1]) == list:
                 # means the child was a non-terminal
                 next_node = child[0]
                 next_children = child[1]
                 next_last_child = (index == len(children) - 1)
-                Parser.draw_subtree(lines_list=lines_list, node=next_node, children=next_children, ancestors_open=new_ancestors_open,
+                self.draw_subtree(lines_list=lines_list, node=next_node, children=next_children,
+                                    ancestors_open=new_ancestors_open,
                                     last_child=next_last_child)
             else:
                 # the child is a terminal
                 next_node = child
                 next_children = []
                 next_last_child = (index == len(children) - 1)
-                Parser.draw_subtree(lines_list=lines_list, node=next_node, children=next_children, ancestors_open=new_ancestors_open,
+                self.draw_subtree(lines_list=lines_list, node=next_node, children=next_children,
+                                    ancestors_open=new_ancestors_open,
                                     last_child=next_last_child)
 
     @staticmethod

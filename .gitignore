@@ -6,3 +6,4 @@ test.py
 syntax_errors.txt
 parse_tree.txt
 P2_testcases/
+.idea/
