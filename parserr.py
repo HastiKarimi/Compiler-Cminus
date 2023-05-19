@@ -108,7 +108,7 @@ class Parser:
             token_name = get_token_name(self.current_token)
             if token_name in self.current_nt.follows:
                 self.report_syntax_error(missing_error_keyword, self.current_nt.name, self.current_line)
-                return  # assume that the current nt is found and we should continue
+                return  # assume that the current nt is found, and we should continue
             elif token_name == eof_keyword:
                 self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
                 self.finish()
@@ -147,6 +147,8 @@ class Parser:
 
     def update_token(self):
         self.current_token, self.current_line = self.scanner.get_next_token(write_to_file=True)
+        # if self.current_token[1] == '}':
+        #     print("here")
 
     def report_syntax_error(self, error_type, token_name, line_number):
         error_message = "#" + str(line_number) + " : syntax error, " + str(error_type) + " " \
@@ -283,13 +285,11 @@ class Nonterminal:
 
     def predict_rule(self, current_token: str) -> int:
         # predicts the id of the rule to apply based on the current token. If no rule was found, return None
+        token_name = get_token_name(current_token)
         for rule_id in self.rule_ids:
             rule = rules[rule_id]
-            token_name = current_token[0]
-            if current_token[0] in ['KEYWORD', 'SYMBOL']:
-                token_name = current_token[1]
             if token_name in rule.firsts:
                 return rule_id
-        if current_token in data[follow_keyword][self.name]:
+        if token_name in self.follows:
             return self.epsilon_rule  # it's either None or one of the rules that has epsilon in its first set
         return None
