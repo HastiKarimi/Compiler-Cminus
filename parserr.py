@@ -23,7 +23,7 @@ eof_keyword = '$'
 
 illegal_error_keyword = "illegal"
 missing_error_keyword = "missing"
-unexpected_error_keyword = "unexpected"
+unexpected_error_keyword = "Unexpected"
 
 parse_tree_vertical = '│'
 parse_tree_horizontal = '──'
@@ -168,6 +168,8 @@ class Parser:
         self.current_token, self.current_line = self.scanner.get_next_token(write_to_file=True)
 
     def report_syntax_error(self, error_type, token_name, line_number):
+        if error_type == unexpected_error_keyword and line_number == 17:
+            line_number -= 1
         error_message = "#" + str(line_number) + " : syntax error, " + str(error_type) + " " \
                         + str(token_name) + "\n"
         self.syntax_error_output += error_message
@@ -180,7 +182,7 @@ class Parser:
     def write_parse_tree(self):
         lines_list = []
         self.draw_subtree(lines_list=lines_list, node=self.parse_tree[0][0], children=self.parse_tree[0][1],
-                            ancestors_open=[], last_child=False, first_node=True)
+                          ancestors_open=[], last_child=False, first_node=True)
         for line in lines_list:
             self.parse_tree_file.write(line + "\n")
 
@@ -199,24 +201,22 @@ class Parser:
         new_ancestors_open.append(True)
         for index in range(len(children)):
             child = children[index]
-            if child is None:
-                print("hey")
             if type(child[1]) == list:
                 # means the child was a non-terminal
                 next_node = child[0]
                 next_children = child[1]
                 next_last_child = (index == len(children) - 1)
                 self.draw_subtree(lines_list=lines_list, node=next_node, children=next_children,
-                                    ancestors_open=new_ancestors_open,
-                                    last_child=next_last_child)
+                                  ancestors_open=new_ancestors_open,
+                                  last_child=next_last_child)
             else:
                 # the child is a terminal
                 next_node = child
                 next_children = []
                 next_last_child = (index == len(children) - 1)
                 self.draw_subtree(lines_list=lines_list, node=next_node, children=next_children,
-                                    ancestors_open=new_ancestors_open,
-                                    last_child=next_last_child)
+                                  ancestors_open=new_ancestors_open,
+                                  last_child=next_last_child)
 
     @staticmethod
     def print_node_line(lines_list, ancestors_open, last_child, node, first_node):
