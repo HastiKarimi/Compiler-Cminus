@@ -127,10 +127,15 @@ class Parser:
         my_list.extend(rule.get_actions())
         for i in range(len(my_list)):
             action = my_list[i]
-
-            if is_terminal(action):
-                self.match_action(action)
-                my_list[i] = self.current_token
+            if self.current_token == ('eof', '$') and eof_reached:
+                my_list[i] = None
+            elif is_terminal(action):
+                if action == epsilon_keyword:
+                    my_list[i] = (epsilon_keyword, epsilon_keyword)
+                else:
+                    my_list[i] = self.current_token
+                    if not self.match_action(action):
+                        my_list[i] = None
             else:
                 child_nt_list = []
                 my_list[i] = (action, child_nt_list)
@@ -233,8 +238,8 @@ class Parser:
             line += parse_tree_middle
         line += parse_tree_horizontal
         if is_terminal(node):
-            if node[0] == 'eof':
-                line += ' ' + str(node[1])
+            if node[0] == 'eof' or node[0] == epsilon_keyword:
+                line += ' ' + str(node[1]).lower()
             else:
                 line += ' (' + str(node[0]) + ', ' + str(node[1]) + ')'
         else:
