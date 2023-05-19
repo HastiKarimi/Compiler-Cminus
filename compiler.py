@@ -8,6 +8,7 @@ out_file = open("tokens.txt", "w+")
 lex_file = open("lexical_errors.txt", "w+")
 sym_file = open("symbol_table.txt", "w+")
 parser_errors_file = open("syntax_errors.txt", "w+")
+parser_tree_file = open("parse_tree.txt", "w+", encoding='utf-8')
 
 scanner = Scanner(
     input_file=in_file,
@@ -16,7 +17,7 @@ scanner = Scanner(
     sym_file=sym_file
 )
 
-parser = Parser(errors_file=parser_errors_file, scanner=scanner)
+parser = Parser(errors_file=parser_errors_file, parse_tree_file=parser_tree_file, scanner=scanner)
 parser.run()
 
 in_file.close()

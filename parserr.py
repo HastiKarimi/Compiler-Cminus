@@ -45,10 +45,12 @@ def get_token_name(token) -> str:
         token_name = token[1]
     return token_name
 
+
 class Parser:
-    def __init__(self, errors_file, scanner) -> None:
+    def __init__(self, errors_file, parse_tree_file, scanner) -> None:
         self.rules = rules
         self.errors_file = errors_file
+        self.parse_tree_file = parse_tree_file
         self.initialize()
         self.current_token = None  # (type, lexeme)
         self.current_line = None
@@ -86,7 +88,7 @@ class Parser:
 
     def run(self):
         nt_list = []
-        self.parse_tree.extend([(self.current_nt.name, nt_list), '$'])
+        self.parse_tree.extend([(self.current_nt.name, nt_list), ('eof', '$')])
         self.update_token()
         self.call_nt(self.current_nt.name, nt_list)
         # after everything is finished, and we have probably faced $,
@@ -123,6 +125,7 @@ class Parser:
 
             if is_terminal(action):
                 self.match_action(action)
+                my_list[i] = self.current_token
             else:
                 child_nt_list = []
                 my_list[i] = (action, child_nt_list)
@@ -156,17 +159,27 @@ class Parser:
         self.errors_file.write(self.syntax_error_output)
 
     def write_parse_tree(self):
-        pass
-        # Parser.draw_subtree(node=self.parse_tree[0][0], children=self.parse_tree[0][1], ancestors_open=[],
-        #                     last_child=False)
+        lines_list = []
+        Parser.draw_subtree(lines_list=lines_list, node=self.parse_tree[0][0], children=self.parse_tree[0][1], ancestors_open=[],
+                            last_child=False, first_node=True)
+        for line in lines_list:
+            self.parse_tree_file.write(line + "\n")
+
 
     @staticmethod
-    def draw_subtree(node, children, ancestors_open, last_child):
+    def draw_subtree(lines_list, node, children, ancestors_open, last_child, first_node=False):
         # children is a list of tuples. if the child is a terminal, the tuple is (token type, lexeme)
         # if the child is a non-terminal, the tuple is (node name, [its children])
-        Parser.print_node_line(ancestors_open, last_child, node)
+        Parser.print_node_line(lines_list, ancestors_open, last_child, node, first_node)
 
-        ancestors_open.append(last_child)
+        new_ancestors_open = []
+        for i in range(len(ancestors_open)):
+            if i == len(ancestors_open) - 1:
+                new_ancestors_open.append(not last_child)
+            else:
+                new_ancestors_open.append(ancestors_open[i])
+
+        new_ancestors_open.append(True)
         for index in range(len(children)):
             child = children[index]
             if type(child[1]) == list:
@@ -174,18 +187,22 @@ class Parser:
                 next_node = child[0]
                 next_children = child[1]
                 next_last_child = (index == len(children) - 1)
-                Parser.draw_subtree(node=next_node, children=next_children, ancestors_open=ancestors_open,
+                Parser.draw_subtree(lines_list=lines_list, node=next_node, children=next_children, ancestors_open=new_ancestors_open,
                                     last_child=next_last_child)
             else:
                 # the child is a terminal
                 next_node = child
                 next_children = []
                 next_last_child = (index == len(children) - 1)
-                Parser.draw_subtree(node=next_node, children=next_children, ancestors_open=ancestors_open,
+                Parser.draw_subtree(lines_list=lines_list, node=next_node, children=next_children, ancestors_open=new_ancestors_open,
                                     last_child=next_last_child)
 
     @staticmethod
-    def print_node_line(ancestors_open, last_child, node):
+    def print_node_line(lines_list, ancestors_open, last_child, node, first_node):
+        if first_node:
+            line = str(node)
+            lines_list.append(line)
+            return
         line = ''
         for ancestor_index in range(len(ancestors_open) - 1):
             is_open = ancestors_open[ancestor_index]
@@ -200,10 +217,13 @@ class Parser:
             line += parse_tree_middle
         line += parse_tree_horizontal
         if is_terminal(node):
-            line += ' (' + str(node[0]) + ', ' + str(node[1]) + ')'
+            if node[0] == 'eof':
+                line += ' ' + str(node[1])
+            else:
+                line += ' (' + str(node[0]) + ', ' + str(node[1]) + ')'
         else:
-            line += str(node)
-        print(line)
+            line += ' ' + str(node)
+        lines_list.append(line)
 
 
 class Rule:
