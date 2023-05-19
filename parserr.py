@@ -39,6 +39,12 @@ def is_terminal(name: str) -> bool:
     return name not in non_terminals
 
 
+def get_token_name(token) -> str:
+    token_name = token[0]
+    if token_name in ['SYMBOL', 'KEYWORD', 'eof']:
+        token_name = token[1]
+    return token_name
+
 class Parser:
     def __init__(self, errors_file, scanner) -> None:
         self.rules = rules
@@ -85,22 +91,28 @@ class Parser:
         self.call_nt(self.current_nt.name, nt_list)
         # after everything is finished, and we have probably faced $,
         # we should write syntax errors and parse tree in file
+        self.finish()
+
+    def finish(self):
         self.write_syntax_errors()
         self.write_parse_tree()
+        exit(0)
 
     def call_nt(self, nt_name: str, nt_list: list):
         my_list = nt_list
         self.current_nt = non_terminals[nt_name]
         rule_id = self.current_nt.predict_rule(self.current_token)
         if rule_id is None:
-            token_name = self.current_token[0]
-            if token_name in ['KEYWORD', 'SYMBOL']:
-                token_name = self.current_token[1]
+            token_name = get_token_name(self.current_token)
             if token_name in self.current_nt.follows:
                 self.report_syntax_error(missing_error_keyword, self.current_nt.name, self.current_line)
                 return  # assume that the current nt is found and we should continue
+            elif token_name == eof_keyword:
+                self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
+                self.finish()
+                return
             else:
-                self.report_syntax_error(illegal_error_keyword, self.current_token, self.current_line)
+                self.report_syntax_error(illegal_error_keyword, get_token_name(self.current_token), self.current_line)
                 self.update_token()  # assume there was an illegal input and ignore it
                 self.call_nt(nt_name, nt_list)
                 return
@@ -121,17 +133,16 @@ class Parser:
             return
         if self.current_token[1] == eof_keyword and terminal_action is not eof_keyword:
             self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
+            self.finish()
+            return
         else:
-            token_name = self.current_token[0]
-            if token_name in ['KEYWORD', 'SYMBOL', 'eof']:
-                token_name = self.current_token[1]
+            token_name = get_token_name(self.current_token)
             if token_name != terminal_action:
-                self.report_syntax_error(missing_error_keyword, token_name, self.current_line)
+                self.report_syntax_error(missing_error_keyword, terminal_action, self.current_line)
+                return
         self.update_token()
 
     def update_token(self):
-        if self.current_token == ';':
-            print("here")
         self.current_token, self.current_line = self.scanner.get_next_token(write_to_file=True)
 
     def report_syntax_error(self, error_type, token_name, line_number):
@@ -143,7 +154,6 @@ class Parser:
         if self.syntax_error_output == '':
             self.syntax_error_output = "There is no syntax error."
         self.errors_file.write(self.syntax_error_output)
-        self.errors_file.close()  # TODO who is responsible for closing this file? Parser or compiler?
 
     def write_parse_tree(self):
         pass
@@ -260,5 +270,6 @@ class Nonterminal:
                 token_name = current_token[1]
             if token_name in rule.firsts:
                 return rule_id
-        return self.epsilon_rule
-        # it's either None or one of the rules that has epsilon in its first set
+        if current_token in data[follow_keyword][self.name]:
+            return self.epsilon_rule  # it's either None or one of the rules that has epsilon in its first set
+        return None
