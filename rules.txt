@@ -1,4 +1,4 @@
-Program -> Declaration-list
+Program -> Declaration-list $
 Declaration-list -> Declaration Declaration-list | EPSILON 
 Declaration -> Declaration-initial Declaration-prime
 Declaration-initial -> Type-specifier ID
