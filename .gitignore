@@ -7,3 +7,5 @@ syntax_errors.txt
 parse_tree.txt
 P2_testcases/
 .idea/
+__pycache__/parserr.cpython-39.pyc
+__pycache__/scanner.cpython-39.pyc
