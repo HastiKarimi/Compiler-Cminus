@@ -6,19 +6,20 @@
 # create output file
 '''
 1    assign
-1    declare_id
-1    declare_array
+1    declare_id - done
+1    declare_array - done
+1    push_type  - done
 2    do_op
 2    mult
 2    push_op
-1    label
-1    until
+1    label  - done
+1    until  - done
 2    array_calc
 2    jpf_save
 2    save
 2    jp
-1    print
-1    push_num
+1    print  - done
+1    push_num   - done
 2    id
     add_scope ***
     counter ***
@@ -50,14 +51,50 @@ class code_generator:
             pass
 
 
+    def pop_last_n(self, n):
+        # pop last n elements from semantic stack
+        for _ in range(n):
+            self.semantic_stack.pop()
+
+    def program_block_insert(self, operation, first_op = "", second_op = "", third_op = ""):
+        # insert to program block
+        self.PB.append(f'{operation}, {first_op}, {second_op}, {third_op}')
+        self.PC += 1
+
+    def program_block_modification(self, index, operation, first_op = "", second_op = "", third_op = ""):
+        # modify a passed line of program block and add the code
+        self.PB[index] = f'{operation}, {first_op}, {second_op}, {third_op}'
 
 
+    def push_type(self, token):
+        # push type to stack
+        if token == "int" or token == "void":
+            self.semantic_stack.append(token)
+        else:
+            raise Exception("type not supported")
+        
+    def push_num(self, token):
+        # push number to stack
+        self.semantic_stack.append(int(token.strip()))
+
+    def print(self, token):
+        # TODO no idea yet
+        pass
 
 
+    def declare_id(self, token, kind = "var"):
+        # search in symbol table
+        # if found in current scope raise error
+        # if not found
+        # add to symbol table
+        # token will be the lexeme of the variable
+        if self.symbol_table.lookup(token, self.scope_stack[-1]) != None:
+            raise Exception("variable already declared")
+        else:
+            self.symbol_table.modify_last_row(kind=kind, type=self.semantic_stack[-1])
+            self.semantic_stack.pop()
 
-
-
-    def declare_id(self, token):
+    def declare_array(self, token):
         # search in symbol table
         # if found in current scope raise error
         # if not found
@@ -65,13 +102,21 @@ class code_generator:
         if self.symbol_table.lookup(token, self.scope_stack[-1]) != None:
             raise Exception("variable already declared")
         else:
-            self.symbol_table.insert(token)
+            self.symbol_table.modify_attributes_last_row(num_attributes=self.semantic_stack[-1])
+            self.semantic_stack.pop()
 
-    def declare_array(self, token):
-        # search in symbol table
-        # if found in current scope raise error
-        # if not found
-        # add to symbol table
-        pass
+    
+    def assign(self, token):
+        self.program_block_insert(operation=":=", first_op=self.semantic_stack[-1],second_op=self.semantic_stack[-2])
+        self.pop_last_n(2)
 
-    def assign(self):
+
+    def label(self, token):
+        # declare where to jump back after until in repeat-until
+        self.semantic_stack.append(self.PC)
+
+    def until(self, token):
+        # jump back to label if condition is true
+        self.program_block_insert(operation="JPF", first_op=self.semantic_stack[-1],
+                                    second_op=self.semantic_stack[-2])
+        self.pop_last_n(2)

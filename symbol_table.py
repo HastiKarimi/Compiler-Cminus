@@ -17,8 +17,13 @@ class SymbolTable():
         self.table[-1]['kind'] = kind
         self.table[-1]['type'] = type
         self.table[-1]['scope'] = self.current_scope
+        self.table[-1]['attributes'] = 0
         #TODO add address
         pass
+
+    def modify_attributes_last_row(self, num_attributes):
+        # used for array declaration and function declaration
+        self.table[-1]['attributes'] = num_attributes
 
     def add_scope(self):
         self.current_scope += 1

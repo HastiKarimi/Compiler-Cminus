@@ -9,3 +9,4 @@ P2_testcases/
 .idea/
 __pycache__/parserr.cpython-39.pyc
 __pycache__/scanner.cpython-39.pyc
+spliter.py

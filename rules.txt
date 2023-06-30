@@ -1,7 +1,7 @@
 Program -> Declaration-list $
 Declaration-list -> Declaration Declaration-list | EPSILON 
 Declaration -> Declaration-initial Declaration-prime
-Declaration-initial -> Type-specifier #declare_id ID
+Declaration-initial -> #push_type Type-specifier #declare_id ID
 Declaration-prime -> Fun-declaration-prime | #check_not_void Var-declaration-prime
 Var-declaration-prime -> ; | [ #push_num NUM ] #declare_array ;
 Fun-declaration-prime -> ( Params ) Compound-stmt
