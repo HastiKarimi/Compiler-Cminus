@@ -43,7 +43,7 @@ attributes_key = "attributes"
 lexeme_key = "lexeme"
 
 
-def semantic_error(type, first_op, second_op="", third_op=""):
+def semantic_error(type_error="error", first_op="", second_op="", third_op=""):
     print(f"semantic error: {first_op}, {second_op}, {third_op}")
 
 
