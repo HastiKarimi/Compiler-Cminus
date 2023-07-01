@@ -5,7 +5,7 @@
 # parse change to call semantic analyzer and code generator
 # create output file
 """
-1    assign
+1    assign             done
 1    declare_id         done
 1    declare_array      done
 1    push_type          done
@@ -40,7 +40,7 @@ type_key = "type"
 address_key = "address"
 scope_key = "scope"
 attributes_key = "attributes"
-
+lexeme_key = "lexeme"
 
 
 def semantic_error(type, first_op, second_op="", third_op=""):
@@ -59,20 +59,49 @@ class CodeGenerator:
         self.heap_manager = heap
 
     def code_gen(self, action_symbol, token):
+        action_symbol = action_symbol[1:]
         if action_symbol == "declare_id":
             self.declare_id(token)
         elif action_symbol == "declare_array":
-            pass
+            self.declare_array(token)
+        elif action_symbol == "push_type":
+            self.push_type(token)
+        elif action_symbol == "do_op":
+            self.do_op(token)
+        elif action_symbol == "mult":
+            self.mult(token)
+        elif action_symbol == "push_op":
+            self.push_op(token)
+        elif action_symbol == "label":
+            self.label(token)
+        elif action_symbol == "until":
+            self.until(token)
+        elif action_symbol == "array_calc":
+            self.array_calc(token)
+        elif action_symbol == "jpf_save":
+            self.jpf_save(token)
+        elif action_symbol == "save":
+            self.save(token)
+        elif action_symbol == "jp":
+            self.jp(token)
+        elif action_symbol == "print":
+            self.print(token)
+        elif action_symbol == "push_num":
+            self.push_num(token)
+        elif action_symbol == "id":
+            self.id(token)
+        elif action_symbol == "assign":
+            self.assign(token)
 
     def pop_last_n(self, n):
         # pop last n elements from semantic stack
         for _ in range(n):
             self.semantic_stack.pop()
 
-    def program_block_insert(self, operation, first_op="", second_op="", third_op=""):
+    def program_block_insert(self, operation, first_op=" ", second_op=" ", third_op=" "):
         # insert to program block
         operation = self.get_operation_by_symbol(operation)
-        self.PB.append(f'{operation}, {first_op}, {second_op}, {third_op}')
+        self.PB.append(f'{len(self.PB)}\t({operation}, {first_op}, {second_op}, {third_op} )')
         self.PC += 1
 
     def program_block_insert_empty(self):
@@ -99,7 +128,7 @@ class CodeGenerator:
         elif symbol == ":=":
             return "ASSIGN"
         else:
-            return symbol.toUpper()
+            return symbol.upper()
 
     def push_type(self, token):
         # push type to stack
@@ -110,11 +139,11 @@ class CodeGenerator:
 
     def push_num(self, token):
         # push number to stack
-        self.semantic_stack.append(int(token.strip()))
+        self.semantic_stack.append(str("#" + token.strip()))
 
     def print(self, token):
-        # TODO no idea yet
-        pass
+        self.program_block_insert(operation="print", first_op=self.semantic_stack[-1])
+        self.semantic_stack.pop()
 
     def declare_id(self, token, kind="var"):
         # search in symbol table
@@ -122,10 +151,15 @@ class CodeGenerator:
         # if not found
         # add to symbol table
         # token will be the lexeme of the variable
-        if self.symbol_table.lookup(token, self.scope_stack[-1]) != None:
+        if self.symbol_table.lookup(token, self.scope_stack[-1], True) != None:
             raise Exception("variable already declared")
         else:
             self.symbol_table.modify_last_row(kind=kind, type=self.semantic_stack[-1])
+            self.program_block_insert(
+                operation=":=",
+                first_op="#0",
+                second_op=self.symbol_table.get_last_row()[address_key],
+            )
             self.semantic_stack.pop()
 
     def declare_array(self, token):
@@ -133,7 +167,7 @@ class CodeGenerator:
         # if found in current scope raise error
         # if not found
         # add to symbol table
-        if self.symbol_table.lookup(token, self.scope_stack[-1]) != None:
+        if self.symbol_table.lookup(token, self.scope_stack[-1], True) != None:
             raise Exception("variable already declared")
         else:
             self.symbol_table.modify_attributes_last_row(num_attributes=self.semantic_stack[-1])
@@ -150,7 +184,7 @@ class CodeGenerator:
     def until(self, token):
         # jump back to label if condition is true
         self.program_block_insert(operation="JPF", first_op=self.semantic_stack[-1],
-                                second_op=self.semantic_stack[-2])
+                                  second_op=self.semantic_stack[-2])
         self.pop_last_n(2)
 
     def mult(self, token):
@@ -158,9 +192,9 @@ class CodeGenerator:
         first_op = self.semantic_stack[-1]
         second_op = self.semantic_stack[-2]
         # todo semantic: check operands type
-        op_type = self.symbol_table.get_row_by_address(first_op)[type_key]
+        op_type = self.get_operand_type(first_op)
         temp = self.heap_manager.get_temp(op_type)
-        self.program_block_insert(operation="*", first_op=first_op,second_op=second_op,third_op=temp)
+        self.program_block_insert(operation="*", first_op=first_op, second_op=second_op, third_op=temp)
         self.pop_last_n(2)
         self.semantic_stack.append(temp)
 
@@ -169,7 +203,8 @@ class CodeGenerator:
         # the index is on top of the stack and the address of array is the second element
         # pop those two and push the address of calculated address to the stack
         array_address = self.semantic_stack[-2]
-        array_type = self.symbol_table.get_row_by_address(array_address)[type_key]
+        # array_type = self.symbol_table.get_row_by_address(array_address)[type_key]
+        array_type = self.get_operand_type(array_address)
         temp = self.heap_manager.get_temp(array_type)
         self.program_block_insert(
             operation="*",
@@ -179,12 +214,12 @@ class CodeGenerator:
         )
         self.program_block_insert(
             operation="+",
-            first_op=array_address,
+            first_op=str('#' + str(array_address)),
             second_op=temp,
             third_op=temp
         )
         self.pop_last_n(2)
-        self.semantic_stack.append(temp)
+        self.semantic_stack.append(str('@' + temp))
 
     def push_op(self, token):
         # push operator to stack
@@ -195,10 +230,12 @@ class CodeGenerator:
         # pop the operator and operands from the stack
         # push the result to the stack
         op = self.semantic_stack[-2]
-        first_op = self.semantic_stack[-1]
-        second_op = self.semantic_stack[-3]
+        first_op = self.semantic_stack[-3]
+        second_op = self.semantic_stack[-1]
         self.pop_last_n(3)
-        temp = self.heap_manager.get_temp(self.symbol_table.get_row_by_address(first_op)[type_key])
+        # todo semantic: check operands type
+        operands_type = self.get_operand_type(first_op)
+        temp = self.heap_manager.get_temp(operands_type)
         self.program_block_insert(operation=op, first_op=first_op, second_op=second_op, third_op=temp)
         self.semantic_stack.append(temp)
 
@@ -233,5 +270,21 @@ class CodeGenerator:
         # push the address of current token
         # todo semantic: check if variable is declared in our scope
         # todo how should we handle scope?
-        address = self.symbol_table.lookup(token, self.scope_stack[-1])[address_key]
-        self.semantic_stack.append(address)
+        row = self.symbol_table.lookup(token, self.scope_stack[-1])
+        if row[lexeme_key] != "output":  # added because of not implementing function calls
+            address = row[address_key]
+            self.semantic_stack.append(address)
+
+    def get_operand_type(self, operand):
+        if str(operand).startswith("#"):
+            return "int"
+        elif str(operand).startswith("@"):
+            operand = operand[1:]
+        return self.heap_manager.get_type_by_address(operand)
+
+    def print_pb(self):
+        print("\n--------------Program Block---------------")
+        for row in self.PB:
+            print(row)
+
+

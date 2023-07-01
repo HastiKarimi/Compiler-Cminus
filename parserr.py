@@ -42,6 +42,8 @@ def is_terminal(name: str) -> bool:
 
 
 def is_action_symbol(name: str) -> bool:
+    if type(name) != str:
+        return False
     return name.startswith('#')
 
 
@@ -49,6 +51,11 @@ def get_token_name(token) -> str:
     token_name = token[0]
     if token_name in ['SYMBOL', 'KEYWORD', 'eof']:
         token_name = token[1]
+    return token_name
+
+
+def get_action_symbol_input(token) -> str:
+    token_name = token[1]
     return token_name
 
 
@@ -143,7 +150,7 @@ class Parser:
                     if not self.match_action(action):
                         my_list[i] = None
             elif is_action_symbol(action):
-                self.code_generator.gen_code(action, self.current_token)
+                self.code_generator.code_gen(action, get_action_symbol_input(self.current_token))
             else:
                 child_nt_list = []
                 my_list[i] = (action, child_nt_list)
@@ -190,7 +197,7 @@ class Parser:
     def write_parse_tree(self):
         lines_list = []
         self.draw_subtree(lines_list=lines_list, node=self.parse_tree[0][0], children=self.parse_tree[0][1],
-                            ancestors_open=[], last_child=False, first_node=True)
+                          ancestors_open=[], last_child=False, first_node=True)
         for line in lines_list:
             self.parse_tree_file.write(line + "\n")
 
@@ -294,7 +301,7 @@ class Nonterminal:
             if is_terminal(action):
                 rule_first.append(action)
                 return remove_duplicates(rule_first)
-            else:
+            elif not is_action_symbol(action):
                 # then action is a non-terminal
                 action_first = data[first_keyword][action]
                 if epsilon_keyword in action_first:

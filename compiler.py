@@ -13,7 +13,8 @@ sym_file = open("symbol_table.txt", "w+")
 parser_errors_file = open("syntax_errors.txt", "w+")
 parser_tree_file = open("parse_tree.txt", "w+", encoding='utf-8')
 
-symbol_table = SymbolTable()
+heap = HeapManager()
+symbol_table = SymbolTable(heap)
 
 scanner = Scanner(
     input_file=in_file,
@@ -23,7 +24,6 @@ scanner = Scanner(
     symbol_table=symbol_table
 )
 
-heap = HeapManager()
 
 code_generator = CodeGenerator(symbol_table=symbol_table, heap=heap)
 
@@ -41,4 +41,6 @@ parser_errors_file.close()
 
 for row in symbol_table.table:
     print(row)
+
+code_generator.print_pb()
 
