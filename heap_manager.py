@@ -16,7 +16,6 @@ class HeapManager:
 
     @staticmethod
     def get_length_by_type(type_name):
-        return 4
         if type_name == "int":
             return 4
         elif type_name == "void":
