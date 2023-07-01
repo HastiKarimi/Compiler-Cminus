@@ -47,7 +47,7 @@ def semantic_error(type, first_op, second_op="", third_op=""):
     print(f"semantic error: {first_op}, {second_op}, {third_op}")
 
 
-class code_generator:
+class CodeGenerator:
 
     def __init__(self, symbol_table: SymbolTable, heap: HeapManager):
         self.symbol_table = symbol_table

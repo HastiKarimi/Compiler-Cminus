@@ -38,7 +38,11 @@ def remove_duplicates(my_list):
 
 
 def is_terminal(name: str) -> bool:
-    return name not in non_terminals
+    return not is_action_symbol(name) and name not in non_terminals
+
+
+def is_action_symbol(name: str) -> bool:
+    return name.startswith('#')
 
 
 def get_token_name(token) -> str:
@@ -53,7 +57,6 @@ class Parser:
         self.scanner = scanner
         self.code_generator = code_gen
 
-
         self.rules = rules
         self.errors_file = errors_file
         self.parse_tree_file = parse_tree_file
@@ -63,8 +66,6 @@ class Parser:
         self.current_nt = non_terminals[starting_nt]
         self.parse_tree = []
         self.syntax_error_output = ""
-
-
 
     def initialize(self):
         global data
