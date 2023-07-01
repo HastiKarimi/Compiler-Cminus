@@ -12,3 +12,5 @@ __pycache__/parserr.cpython-39.pyc
 __pycache__/scanner.cpython-39.pyc
 spliter.py
 /P3_testcases/
+generated_files/
+just_for_fun/
