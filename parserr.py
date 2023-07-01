@@ -142,6 +142,8 @@ class Parser:
                     my_list[i] = self.current_token
                     if not self.match_action(action):
                         my_list[i] = None
+            elif is_action_symbol(action):
+                self.code_generator.gen_code(action, self.current_token)
             else:
                 child_nt_list = []
                 my_list[i] = (action, child_nt_list)
