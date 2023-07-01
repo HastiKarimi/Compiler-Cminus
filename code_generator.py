@@ -55,7 +55,7 @@ class CodeGenerator:
         self.PB = []
         # pc shows the next line of program block to be filled (i in slides)
         self.PC = 0
-        self.scope_stack = []
+        self.scope_stack = [0]
         self.heap_manager = heap
 
     def code_gen(self, action_symbol, token):
@@ -150,7 +150,7 @@ class CodeGenerator:
     def until(self, token):
         # jump back to label if condition is true
         self.program_block_insert(operation="JPF", first_op=self.semantic_stack[-1],
-                                  second_op=self.semantic_stack[-2])
+                                second_op=self.semantic_stack[-2])
         self.pop_last_n(2)
 
     def mult(self, token):
