@@ -187,7 +187,7 @@ class Parser:
     def write_parse_tree(self):
         lines_list = []
         self.draw_subtree(lines_list=lines_list, node=self.parse_tree[0][0], children=self.parse_tree[0][1],
-                          ancestors_open=[], last_child=False, first_node=True)
+                            ancestors_open=[], last_child=False, first_node=True)
         for line in lines_list:
             self.parse_tree_file.write(line + "\n")
 

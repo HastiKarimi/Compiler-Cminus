@@ -39,3 +39,6 @@ lex_file.close()
 sym_file.close()
 parser_errors_file.close()
 
+for row in symbol_table.table:
+    print(row)
+
