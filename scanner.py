@@ -53,11 +53,12 @@ def make_transition(chars_id: list[int], goal_states: list[int], state: State):
 
 class Scanner:
 
-    def __init__(self, input_file, output_file, lex_file, sym_file):
+    def __init__(self, input_file, output_file, lex_file, sym_file, symbol_table):
         self.input_file = input_file
         self.output_file = output_file
         self.lex_file = lex_file
         self.sym_file = sym_file
+        self.symbol_table = symbol_table
         self.types = {1: "NUM", 2: "ID", 3: "KEYWORD", 4: "SYMBOL", 5: "COMMENT", 6: "WHITESPACE"}
         self.keywords = ["break", "else", "if", "int", "repeat", "return", "until", "void"]
 
@@ -268,12 +269,15 @@ class Scanner:
             for keyword in self.keywords:
                 self.sym_table_index += 1
                 text += str(self.sym_table_index) + index_separator + keyword + "\n"
+                self.symbol_table.insert(keyword)   # this is not necessary though.
+                # we can omit it but it will make the program to not allow program default keywords redefinition.
             self.sym_table_initialized = True
 
         if type == id_type:
             if lexeme not in self.identifiers:
                 self.sym_table_index += 1
                 text += str(self.sym_table_index) + index_separator + lexeme + "\n"
+                self.symbol_table.insert(lexeme)
 
         if len(text) != 0:
             self.sym_file.write(text)

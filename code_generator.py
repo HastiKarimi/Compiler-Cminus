@@ -29,9 +29,11 @@
     check_not_void ***
     end_func ***
     add_param ***
+    end_func_params ***
 '''
 
 from symbol_table import SymbolTable
+from heap_manager import HeapManager
 
 
 class code_generator:
@@ -42,6 +44,7 @@ class code_generator:
         self.PB = []
         self.PC = 0
         self.scope_stack = []
+        self.heap_manager = HeapManager()
         
 
     def code_gen(self, action_symbol, token):
@@ -93,6 +96,7 @@ class code_generator:
         else:
             self.symbol_table.modify_last_row(kind=kind, type=self.semantic_stack[-1])
             self.semantic_stack.pop()
+
 
     def declare_array(self, token):
         # search in symbol table
