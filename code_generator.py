@@ -92,26 +92,32 @@ class CodeGenerator:
             self.id(token)
         elif action_symbol == "assign":
             self.assign(token)
+        elif action_symbol == "push_eq":
+            self.push_eq(token)
 
     def pop_last_n(self, n):
         # pop last n elements from semantic stack
         for _ in range(n):
             self.semantic_stack.pop()
 
+    @staticmethod
+    def get_pb_line(line_index, operation, first_op=" ", second_op=" ", third_op=" "):
+        return f'{line_index}\t({operation}, {first_op}, {second_op}, {third_op} )'
+
     def program_block_insert(self, operation, first_op=" ", second_op=" ", third_op=" "):
         # insert to program block
         operation = self.get_operation_by_symbol(operation)
-        self.PB.append(f'{len(self.PB)}\t({operation}, {first_op}, {second_op}, {third_op} )')
-        self.PC += 1
-
-    def program_block_insert_empty(self):
-        self.PB.append("")
+        self.PB.append(self.get_pb_line(len(self.PB), operation, first_op, second_op, third_op))
         self.PC += 1
 
     def program_block_modification(self, index, operation, first_op="", second_op="", third_op=""):
         # modify a passed line of program block and add the code
         operation = self.get_operation_by_symbol(operation)
-        self.PB[index] = f'{operation}, {first_op}, {second_op}, {third_op}'
+        self.PB[index] = self.get_pb_line(index, operation, first_op, second_op, third_op)
+
+    def program_block_insert_empty(self):
+        self.PB.append("")
+        self.PC += 1
 
     @staticmethod
     def get_operation_by_symbol(symbol):
@@ -174,8 +180,16 @@ class CodeGenerator:
             self.semantic_stack.pop()
 
     def assign(self, token):
-        self.program_block_insert(operation=":=", first_op=self.semantic_stack[-1], second_op=self.semantic_stack[-2])
-        self.pop_last_n(2)
+        # stack:
+        # -1: source
+        # -2: =
+        # -3: destination
+        answer = self.semantic_stack[-3]
+        self.program_block_insert(operation=":=", first_op=self.semantic_stack[-1], second_op=self.semantic_stack[-3])
+        self.pop_last_n(3)
+        if len(self.semantic_stack) > 0 and self.semantic_stack[-1] == "=":
+            # means there was a nested assignment and we should push the result to the stack
+            self.semantic_stack.append(answer)
 
     def label(self, token):
         # declare where to jump back after until in repeat-until
@@ -209,7 +223,7 @@ class CodeGenerator:
         self.program_block_insert(
             operation="*",
             first_op=self.semantic_stack[-1],
-            second_op=self.heap_manager.get_length_by_type(array_type),
+            second_op="#" + str(self.heap_manager.get_length_by_type(array_type)),
             third_op=temp
         )
         self.program_block_insert(
@@ -219,7 +233,7 @@ class CodeGenerator:
             third_op=temp
         )
         self.pop_last_n(2)
-        self.semantic_stack.append(str('@' + temp))
+        self.semantic_stack.append(str('@' + str(temp)))
 
     def push_op(self, token):
         # push operator to stack
@@ -275,16 +289,23 @@ class CodeGenerator:
             address = row[address_key]
             self.semantic_stack.append(address)
 
+    def push_eq(self, token):
+        # in case of assignment, push = to stack
+        # used for finding out if there is a nested assignment
+        self.semantic_stack.append("=")
+
     def get_operand_type(self, operand):
         if str(operand).startswith("#"):
             return "int"
         elif str(operand).startswith("@"):
             operand = operand[1:]
-        return self.heap_manager.get_type_by_address(operand)
+        return self.heap_manager.get_type_by_address(int(operand))
 
     def print_pb(self):
         print("\n--------------Program Block---------------")
         for row in self.PB:
             print(row)
 
-
+    def write_pb_to_file(self, file):
+        for row in self.PB:
+            file.write(str(row) + "\n")

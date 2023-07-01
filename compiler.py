@@ -12,6 +12,7 @@ lex_file = open("lexical_errors.txt", "w+")
 sym_file = open("symbol_table.txt", "w+")
 parser_errors_file = open("syntax_errors.txt", "w+")
 parser_tree_file = open("parse_tree.txt", "w+", encoding='utf-8')
+generated_code_file = open("output.txt", "w+")
 
 heap = HeapManager()
 symbol_table = SymbolTable(heap)
@@ -39,8 +40,6 @@ lex_file.close()
 sym_file.close()
 parser_errors_file.close()
 
-for row in symbol_table.table:
-    print(row)
+code_generator.write_pb_to_file(generated_code_file)
 
-code_generator.print_pb()
 

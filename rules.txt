@@ -19,8 +19,8 @@ Iteration-stmt -> repeat #label Statement until ( Expression ) #until
 Return-stmt -> return Return-stmt-prime
 Return-stmt-prime -> ; | Expression ;
 Expression -> Simple-expression-zegond | #id ID B
-B -> = Expression #assign | [ Expression ] #array_calc H | Simple-expression-prime
-H -> = Expression #assign | G D C
+B -> #push_eq = Expression #assign | [ Expression ] #array_calc H | Simple-expression-prime
+H -> #push_eq = Expression #assign | G D C
 Simple-expression-zegond -> Additive-expression-zegond C
 Simple-expression-prime -> Additive-expression-prime C
 C -> #push_op Relop Additive-expression #do_op | EPSILON
@@ -36,7 +36,7 @@ Term-zegond -> Factor-zegond G
 G -> * Factor #mult G | EPSILON
 Factor -> ( Expression ) | #id ID Var-call-prime | #push_num NUM
 Var-call-prime -> ( #counter Args #end_func #print ) | Var-prime
-Var-prime -> [ Expression ] #array_calcarray_calc | EPSILON
+Var-prime -> [ Expression ] #array_calc | EPSILON
 Factor-prime -> ( #counter Args #end_func #print ) | EPSILON
 Factor-zegond -> ( Expression ) | #push_num NUM
 Args -> Arg-list | EPSILON
