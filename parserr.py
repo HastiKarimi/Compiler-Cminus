@@ -150,7 +150,10 @@ class Parser:
                     if not self.match_action(action):
                         my_list[i] = None
             elif is_action_symbol(action):
-                self.code_generator.code_gen(action, get_action_symbol_input(self.current_token))
+                try:
+                    self.code_generator.code_gen(action, get_action_symbol_input(self.current_token))
+                except Exception as e:
+                    pass
             else:
                 child_nt_list = []
                 my_list[i] = (action, child_nt_list)
