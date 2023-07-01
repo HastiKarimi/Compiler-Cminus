@@ -10,11 +10,11 @@
 1    declare_array - done
 1    push_type  - done
 2    do_op
-2    mult
+2    mult - done
 2    push_op
 1    label  - done
 1    until  - done
-2    array_calc
+2    array_calc - done
 2    jpf_save
 2    save
 2    jp
@@ -35,6 +35,7 @@
 from symbol_table import SymbolTable
 from heap_manager import HeapManager
 
+type_key = "type"
 
 def semantic_error(type, first_op, second_op = "", third_op = ""):
     print(f"semantic error: {first_op}, {second_op}, {third_op}")
@@ -128,3 +129,31 @@ class code_generator:
         self.program_block_insert(operation="JPF", first_op=self.semantic_stack[-1],
                                     second_op=self.semantic_stack[-2])
         self.pop_last_n(2)
+
+    def mult(self, token):
+        # multiply two numbers from top of the stack and push the result
+        prod = self.semantic_stack[-1] * self.semantic_stack[-2]
+        self.pop_last_n(2)
+        self.semantic_stack.append(prod)
+
+    def array_calc(self, token):
+        # calculate the address of the index of the array
+        # the index is on top of the stack and the address of array is the second element
+        # pop those two and push the address of calculated address to the stack
+        array_address = self.semantic_stack[-2]
+        array_type = self.symbol_table.get_row_by_address(array_address)[type_key]
+        temp = self.heap_manager.get_temp(array_type)
+        self.program_block_insert(
+            operation="*",
+            first_op=self.semantic_stack[-1],
+            second_op=self.heap_manager.get_length_by_type(array_type),
+            third_op=temp
+        )
+        self.program_block_insert(
+            operation="+",
+            first_op=array_address,
+            second_op=temp,
+            third_op=temp
+        )
+        self.pop_last_n(2)
+        self.semantic_stack.append(temp)

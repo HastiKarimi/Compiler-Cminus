@@ -36,7 +36,7 @@ Term-zegond -> Factor-zegond G
 G -> * Factor #mult G | EPSILON
 Factor -> ( Expression ) | #id ID Var-call-prime | #push_num NUM
 Var-call-prime -> ( #counter Args #end_func #print ) | Var-prime
-Var-prime -> [ Expression ] #array_calc | EPSILON
+Var-prime -> [ Expression ] #array_calcarray_calc | EPSILON
 Factor-prime -> ( #counter Args #end_func #print ) | EPSILON
 Factor-zegond -> ( Expression ) | #push_num NUM
 Args -> Arg-list | EPSILON

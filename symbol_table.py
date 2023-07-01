@@ -68,3 +68,6 @@ class SymbolTable():
 
     def get_row_by_id(self, id) -> dict:
         return self.table[id]
+
+    def get_row_by_address(self, address) -> dict:
+        return self.get_row_by_id(self.get_row_id_by_address(address))

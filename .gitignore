@@ -10,3 +10,4 @@ P2_testcases/
 __pycache__/parserr.cpython-39.pyc
 __pycache__/scanner.cpython-39.pyc
 spliter.py
+/P3_testcases/
