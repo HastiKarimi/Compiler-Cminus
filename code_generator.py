@@ -15,12 +15,12 @@
 1    label              done
 1    until              done
 2    array_calc         done
-2    jpf_save
-2    save
-2    jp
+2    jpf_save           done
+2    save               done
+2    jp                 done
 1    print              done
 1    push_num           done
-2    id
+2    id                 done
     add_scope ***
     counter ***
     counter_up ***
@@ -35,7 +35,12 @@
 from symbol_table import SymbolTable
 from heap_manager import HeapManager
 
+kind_key = "kind"
 type_key = "type"
+address_key = "address"
+scope_key = "scope"
+attributes_key = "attributes"
+
 
 
 def semantic_error(type, first_op, second_op="", third_op=""):
@@ -48,6 +53,7 @@ class code_generator:
         self.symbol_table = symbol_table
         self.semantic_stack = []
         self.PB = []
+        # pc shows the next line of program block to be filled (i in slides)
         self.PC = 0
         self.scope_stack = []
         self.heap_manager = heap
@@ -67,6 +73,10 @@ class code_generator:
         # insert to program block
         operation = self.get_operation_by_symbol(operation)
         self.PB.append(f'{operation}, {first_op}, {second_op}, {third_op}')
+        self.PC += 1
+
+    def program_block_insert_empty(self):
+        self.PB.append("")
         self.PC += 1
 
     def program_block_modification(self, index, operation, first_op="", second_op="", third_op=""):
@@ -89,7 +99,7 @@ class code_generator:
         elif symbol == ":=":
             return "ASSIGN"
         else:
-            return symbol
+            return symbol.toUpper()
 
     def push_type(self, token):
         # push type to stack
@@ -191,3 +201,37 @@ class code_generator:
         temp = self.heap_manager.get_temp(self.symbol_table.get_row_by_address(first_op)[type_key])
         self.program_block_insert(operation=op, first_op=first_op, second_op=second_op, third_op=temp)
         self.semantic_stack.append(temp)
+
+    def jpf_save(self, token):
+        # jpf
+        self.program_block_modification(
+            index=self.semantic_stack[-1],
+            operation="JPF",
+            first_op=self.semantic_stack[-2],
+            second_op=str(self.PC + 1)
+        )
+        self.pop_last_n(2)
+        # then save current pc
+        self.semantic_stack.append(self.PC)
+        self.program_block_insert_empty()
+
+    def save(self, toke):
+        # save the current PC
+        self.semantic_stack.append(self.PC)
+        self.program_block_insert_empty()
+
+    def jp(self, token):
+        # jump to a label
+        self.program_block_modification(
+            index=self.semantic_stack[-1],
+            operation="JP",
+            first_op=str(self.PC)
+        )
+        self.pop_last_n(1)
+
+    def id(self, token):
+        # push the address of current token
+        # todo semantic: check if variable is declared in our scope
+        # todo how should we handle scope?
+        address = self.symbol_table.lookup(token, self.scope_stack[-1])[address_key]
+        self.semantic_stack.append(address)

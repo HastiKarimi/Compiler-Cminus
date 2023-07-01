@@ -1,4 +1,6 @@
 from heap_manager import HeapManager
+
+
 # TODO there are two heap managers in the project, one in symbol_table.py and one in code_generator.py
 
 class SymbolTable():
@@ -23,7 +25,6 @@ class SymbolTable():
         self.table[-1]['attributes'] = 0
         self.address_to_row[self.table[-1]['address']] = len(self.table) - 1
 
-
     def modify_attributes_last_row(self, num_attributes, arr_func: bool = True):
         # used for array declaration and function declaration
         # if arr_func == True then it is an array
@@ -32,10 +33,8 @@ class SymbolTable():
         if arr_func:
             self.heap_manager.get_temp(self.table[-1]['type'], num_attributes - 1)
 
-    
     def modify_parameter(self):
         self.table[-1]['kind'] = "param"
-
 
     def add_scope(self):
         self.current_scope += 1
@@ -47,19 +46,17 @@ class SymbolTable():
         # remove all rows with scope = current_scope
         while self.table[-1]['scope'] == self.current_scope:
             self.table.pop()
-        
+
         self.current_scope -= 1
 
-
-
-    def lookup(self, name, start_ind, end_ind = -1) -> dict:
+    def lookup(self, name, start_ind=0, end_ind=-1) -> dict:
         # search in symbol table
         # search for it between the start_ind and end_ind of symbol table
         # if end_ind == -1 then it means to search till the end of symbol table
         if end_ind == -1:
-            end = len(self.table)
-        
-        for i in range(start_ind, end):
+            end_ind = len(self.table)
+
+        for i in range(start_ind, end_ind):
             if self.table[i]['lexeme'] == name:
                 return self.table[i]
 
