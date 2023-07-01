@@ -49,17 +49,22 @@ def get_token_name(token) -> str:
 
 
 class Parser:
-    def __init__(self, errors_file, parse_tree_file, scanner) -> None:
+    def __init__(self, errors_file, parse_tree_file, scanner, code_gen) -> None:
+        self.scanner = scanner
+        self.code_generator = code_gen
+
+
         self.rules = rules
         self.errors_file = errors_file
         self.parse_tree_file = parse_tree_file
         self.initialize()
         self.current_token = None  # (type, lexeme)
         self.current_line = None
-        self.scanner = scanner
         self.current_nt = non_terminals[starting_nt]
         self.parse_tree = []
         self.syntax_error_output = ""
+
+
 
     def initialize(self):
         global data

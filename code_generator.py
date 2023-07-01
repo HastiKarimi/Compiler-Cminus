@@ -36,15 +36,19 @@ from symbol_table import SymbolTable
 from heap_manager import HeapManager
 
 
+def semantic_error(type, first_op, second_op = "", third_op = ""):
+    print(f"semantic error: {first_op}, {second_op}, {third_op}")
+
+
 class code_generator:
 
-    def __init__(self, symbol_table):
-        self.symbol_table = SymbolTable()
+    def __init__(self, symbol_table: SymbolTable, heap: HeapManager):
+        self.symbol_table = symbol_table
         self.semantic_stack = []
         self.PB = []
         self.PC = 0
         self.scope_stack = []
-        self.heap_manager = HeapManager()
+        self.heap_manager = heap
         
 
     def code_gen(self, action_symbol, token):

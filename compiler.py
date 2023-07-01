@@ -1,6 +1,8 @@
 from scanner import Scanner
 from parserr import Parser
 from symbol_table import SymbolTable
+from heap_manager import HeapManager
+from code_generator import CodeGenerator
 
 # initialize a scanner and call get_next_token repeatedly
 
@@ -21,9 +23,15 @@ scanner = Scanner(
     symbol_table=symbol_table
 )
 
+heap = HeapManager()
 
-parser = Parser(errors_file=parser_errors_file, parse_tree_file=parser_tree_file, scanner=scanner)
+code_generator = CodeGenerator(symbol_table=symbol_table, heap=heap)
+
+
+parser = Parser(errors_file=parser_errors_file, parse_tree_file=parser_tree_file,
+                scanner=scanner, code_gen=code_generator)
 parser.run()
+
 
 in_file.close()
 out_file.close()
