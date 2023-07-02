@@ -140,6 +140,8 @@ class Parser:
         my_list.extend(rule.get_actions())
         for i in range(len(my_list)):
             action = my_list[i]
+            if self.current_token == "break":
+                pass
             if self.current_token == ('eof', '$') and eof_reached:
                 my_list[i] = None
             elif is_terminal(action):

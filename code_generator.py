@@ -24,7 +24,7 @@
     add_scope ***
     counter ***
     counter_up ***
-    break_check ***
+    break ***
     end_scope ***
     check_not_void ***
     end_func ***
@@ -94,6 +94,8 @@ class CodeGenerator:
             self.assign(token)
         elif action_symbol == "push_eq":
             self.push_eq(token)
+        elif action_symbol == "break":
+            self.break_check(token)
 
     def pop_last_n(self, n):
         # pop last n elements from semantic stack
@@ -116,8 +118,10 @@ class CodeGenerator:
         self.PB[index] = self.get_pb_line(index, operation, first_op, second_op, third_op)
 
     def program_block_insert_empty(self):
-        self.PB.append("")
-        self.PC += 1
+        # TODO change back
+        # self.PB.append("")
+        self.program_block_insert(operation=":=", first_op="#0", second_op="0")
+        # self.PC += 1
 
     @staticmethod
     def get_operation_by_symbol(symbol):
@@ -150,6 +154,15 @@ class CodeGenerator:
     def print(self, token):
         self.program_block_insert(operation="print", first_op=self.semantic_stack[-1])
         self.semantic_stack.pop()
+
+    def break_check(self, token):
+        # TODO check if we are in a repeat until statement
+        # push PC counter so that it can be filled in the #until action symbol to jump out
+        # self.semantic_stack.insert(0, self.PC)
+        self.semantic_stack.append(self.PC)
+        self.program_block_insert_empty()
+        # self.semantic_stack.insert(1, "break")
+        self.semantic_stack.append("break")
 
     def declare_id(self, token, kind="var"):
         # search in symbol table
@@ -197,9 +210,16 @@ class CodeGenerator:
 
     def until(self, token):
         # jump back to label if condition is true
-        self.program_block_insert(operation="JPF", first_op=self.semantic_stack[-1],
-                                  second_op=self.semantic_stack[-2])
-        self.pop_last_n(2)
+        # also check if there were any break statements before
+        temp_until_condition = self.semantic_stack.pop()  # the value that until should decide to jump based on it
+        # check breaks
+        while len(self.semantic_stack) > 0 and self.semantic_stack[-1] == "break":
+            self.program_block_modification(self.semantic_stack[-2], operation="JP", first_op=self.PC + 1)
+            self.pop_last_n(2)
+        # jump back
+        self.program_block_insert(operation="JPF", first_op=temp_until_condition,
+                                  second_op=self.semantic_stack[-1])
+        self.pop_last_n(1)
 
     def mult(self, token):
         # multiply two numbers from top of the stack and push the result
@@ -255,6 +275,15 @@ class CodeGenerator:
 
     def jpf_save(self, token):
         # jpf
+        index_before_break = -1
+        # remove breaks
+        while self.semantic_stack[index_before_break] == "break":
+            index_before_break -= 2
+        breaks = []
+        if index_before_break != -1:
+            breaks = self.semantic_stack[index_before_break + 1:]
+            self.semantic_stack = self.semantic_stack[:index_before_break + 1]
+
         self.program_block_modification(
             index=self.semantic_stack[-1],
             operation="JPF",
@@ -265,6 +294,8 @@ class CodeGenerator:
         # then save current pc
         self.semantic_stack.append(self.PC)
         self.program_block_insert_empty()
+        # add back breaks
+        self.semantic_stack.extend(breaks)
 
     def save(self, toke):
         # save the current PC
@@ -273,12 +304,25 @@ class CodeGenerator:
 
     def jp(self, token):
         # jump to a label
+
+        index_before_break = -1
+        while self.semantic_stack[index_before_break] == "break":
+            index_before_break -= 2
+        breaks = []
+        # remove breaks
+        if index_before_break != -1:
+            breaks = self.semantic_stack[index_before_break + 1:]
+            self.semantic_stack = self.semantic_stack[:index_before_break + 1]
+
         self.program_block_modification(
             index=self.semantic_stack[-1],
             operation="JP",
             first_op=str(self.PC)
         )
         self.pop_last_n(1)
+
+        # add back breaks
+        self.semantic_stack.extend(breaks)
 
     def id(self, token):
         # push the address of current token

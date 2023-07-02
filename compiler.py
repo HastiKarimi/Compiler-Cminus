@@ -6,7 +6,7 @@ from code_generator import CodeGenerator
 
 # initialize a scanner and call get_next_token repeatedly
 
-list_needed_files = ["output", "input"]
+list_needed_files = ["output", "input", "semantic_errors"]
 
 
 def create_file_by_mode(name, mode, encoding='utf-8'):
@@ -34,6 +34,7 @@ sym_file = create_file_by_mode("symbol_table.txt", "w+")
 parser_errors_file = create_file_by_mode("syntax_errors.txt", "w+")
 parser_tree_file = create_file_by_mode("parse_tree.txt", "w+", encoding='utf-8')
 generated_code_file = create_file_by_mode("output.txt", "w+")
+semantic_errors_file = create_file_by_mode("semantic_errors.txt", "w+")
 
 # in_file = open("input.txt", "r")
 # out_file = open("tokens.txt", "w+")
@@ -65,5 +66,6 @@ out_file.close()
 lex_file.close()
 sym_file.close()
 parser_errors_file.close()
+semantic_errors_file.close()
 
 code_generator.write_pb_to_file(generated_code_file)
