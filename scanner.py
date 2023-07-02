@@ -255,6 +255,8 @@ class Scanner:
         if type == id_type:
             if lexeme not in self.identifiers:
                 self.identifiers.append(lexeme)
+                if lexeme != "output":
+                    self.symbol_table.insert(lexeme)
 
     def write_sym_file(self, token):
         keyword_type = "KEYWORD"
@@ -269,7 +271,6 @@ class Scanner:
             for keyword in self.keywords:
                 self.sym_table_index += 1
                 text += str(self.sym_table_index) + index_separator + keyword + "\n"
-                self.symbol_table.insert(keyword)   # this is not necessary though.
                 # we can omit it but it will make the program to not allow program default keywords redefinition.
             self.sym_table_initialized = True
 
@@ -277,7 +278,6 @@ class Scanner:
             if lexeme not in self.identifiers:
                 self.sym_table_index += 1
                 text += str(self.sym_table_index) + index_separator + lexeme + "\n"
-                self.symbol_table.insert(lexeme)
 
         if len(text) != 0:
             self.sym_file.write(text)

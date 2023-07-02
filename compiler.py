@@ -61,11 +61,14 @@ parser = Parser(errors_file=parser_errors_file, parse_tree_file=parser_tree_file
                 scanner=scanner, code_gen=code_generator)
 parser.run()
 
+code_generator.write_pb_to_file(generated_code_file, semantic_errors_file)
+
 in_file.close()
 out_file.close()
 lex_file.close()
 sym_file.close()
 parser_errors_file.close()
 semantic_errors_file.close()
+generated_code_file.close()
 
-code_generator.write_pb_to_file(generated_code_file)
+

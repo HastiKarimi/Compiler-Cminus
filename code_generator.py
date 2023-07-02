@@ -21,15 +21,17 @@
 1    print              done
 1    push_num           done
 2    id                 done
-    add_scope ***
-    counter ***
+    add_scope           done
+    start_call ***
     counter_up ***
-    break ***
-    end_scope ***
-    check_not_void ***
-    end_func ***
-    add_param ***
-    end_func_params ***
+    break_check         done
+    end_scope           done
+    check_not_void      removed - it is checked in declare_id
+    end_call ***
+    add_param           done
+    end_func_params     done
+    start_func          done
+    declare_entry_array done
 """
 
 from symbol_table import SymbolTable
@@ -43,8 +45,19 @@ attributes_key = "attributes"
 lexeme_key = "lexeme"
 
 
-def semantic_error(type_error="error", first_op="", second_op="", third_op=""):
-    print(f"semantic error: {first_op}, {second_op}, {third_op}")
+class SemanticAnalyzer:
+    def __init__(self):
+        self.num_semantic_errors = 0
+        self.all_errors = []
+
+    def raise_semantic_error(self, line_no, error="error", first_op="", second_op="", third_op="", fourth_op=""):
+        self.all_errors.append(error.format(line_no, first_op, second_op, third_op, fourth_op))
+        self.num_semantic_errors += 1
+
+    def pop_error(self):
+        # if we declare a function of type void we must pop the error
+        self.all_errors.pop()
+        self.num_semantic_errors -= 1
 
 
 class CodeGenerator:
@@ -55,10 +68,34 @@ class CodeGenerator:
         self.PB = []
         # pc shows the next line of program block to be filled (i in slides)
         self.PC = 0
-        self.scope_stack = [0]
         self.heap_manager = heap
+        self.current_line = 0
+        # used to say that the function doesn't take any more arguments.
+        # in end_call it will go back to False but in arg_input it may go True if we have error_num_args
+        self.no_more_arg_input = False
+        # for semantic stack
+        # todo must be changed in future because lookup must search by scope
+        self.start_scope = 0
 
-    def code_gen(self, action_symbol, token):
+        self.num_open_repeats = 0
+
+        self.semantic_analyzer = SemanticAnalyzer()
+        # errors
+        self.error_scoping = "#{0}: Semantic Error! '{1}' is not defined.{2}{3}{4}"
+        self.error_void_type = "#{0}: Semantic Error! Illegal type of void for '{1}'.{2}{3}{4}"
+        self.error_type_missmatch = "#{0}: Semantic Error! Type mismatch in operands, Got {1} instead of {2}.{3}{4}"
+        self.error_break = "#{0}: Semantic Error! No 'repeat ... until' found for 'break'."
+        self.error_param_type_missmatch = "#{0}: Semantic Error! Mismatch in type of argument {1} of '{2}'. Expected '{3}' but got '{4}' instead."
+        self.error_num_args = "#{0}: Semantic Error! Mismatch in numbers of arguments of '{1}'.{2}{3}{4}"
+
+    def code_gen(self, action_symbol, token, line_number):
+        self.current_line = line_number
+        if self.no_more_arg_input and action_symbol != "#end_call":
+            return
+
+        # if line_number == 26:
+        #     print("please")
+
         action_symbol = action_symbol[1:]
         if action_symbol == "declare_id":
             self.declare_id(token)
@@ -76,8 +113,6 @@ class CodeGenerator:
             self.label(token)
         elif action_symbol == "until":
             self.until(token)
-        elif action_symbol == "break_check":
-            self.break_check(token)
         elif action_symbol == "array_calc":
             self.array_calc(token)
         elif action_symbol == "jpf_save":
@@ -98,6 +133,24 @@ class CodeGenerator:
             self.push_eq(token)
         elif action_symbol == "break":
             self.break_check(token)
+        elif action_symbol == "add_scope":
+            self.add_scope(token)
+        elif action_symbol == "start_func":
+            self.start_func(token)
+        elif action_symbol == "add_param":
+            self.add_param(token)
+        elif action_symbol == "end_func_params":
+            self.end_func_params(token)
+        elif action_symbol == "start_call":
+            self.start_call(token)
+        elif action_symbol == "end_call":
+            self.end_call(token)
+        elif action_symbol == "declare_entry_array":
+            self.declare_entry_array(token)
+        elif action_symbol == "return":
+            self.return_command(token)
+        elif action_symbol == "arg_input":
+            self.arg_input(token)
 
     def pop_last_n(self, n):
         # pop last n elements from semantic stack
@@ -142,6 +195,122 @@ class CodeGenerator:
         else:
             return symbol.upper()
 
+    def add_scope(self, token):
+        # add scope to scope stack
+        self.symbol_table.add_scope()
+
+    def end_scope(self):
+        self.symbol_table.end_scope()
+
+    def return_command(self, token):
+        self.semantic_stack.pop()
+        # pass
+
+    def start_func(self, token):
+        # start of function declaration
+        self.symbol_table.modify_kind_last_row("func")
+        # add the row_id of function in symbol table to stack so
+        # we can modify num attributes of this function later
+        self.semantic_stack.append(self.symbol_table.get_id_last_row())
+        if self.symbol_table.get_last_row()['type'] == "void":
+            self.semantic_analyzer.pop_error()
+        self.add_scope(token)
+        # add the counter for parameters
+        self.semantic_stack.append(0)
+
+    def add_param(self, token):
+        self.symbol_table.modify_kind_last_row("param")
+        counter = self.semantic_stack.pop()
+        counter += 1
+        self.semantic_stack.append(counter)
+
+    def declare_entry_array(self, token):
+        self.push_num("0")
+        self.declare_array(token)
+
+    def end_func_params(self, token):
+        # end of function declaration
+        self.symbol_table.modify_attributes_row(row_id=self.semantic_stack[-2],
+                                                num_attributes=self.semantic_stack[-1],
+                                                arr_func=False)
+        self.pop_last_n(2)
+        # self.end_scope()
+
+    def start_call(self, token):
+        # start of function call
+        # row_id = self.symbol_table.lookup(self.semantic_stack[-1])['id']
+        row_id = self.symbol_table.get_row_id_by_address(self.semantic_stack[-1])
+        self.semantic_stack.pop()
+        num_parameters = self.symbol_table.get_row_by_id(row_id)[attributes_key]
+        # add parameter types to stack in the form of tuple (type, is_array)
+        for i in range(num_parameters, 0, -1):
+            temp_address_param = self.symbol_table.get_row_by_id(row_id + i)['address']
+            type_param = self.get_operand_type(temp_address_param)
+            self.semantic_stack.append(type_param)
+
+        # add the number of parameters to stack
+        self.semantic_stack.append(num_parameters)
+        # add a counter for arguments - at first it is equal to number of parameters
+        self.semantic_stack.append(num_parameters)
+        # add name of function to stack
+        self.semantic_stack.append(self.symbol_table.get_row_by_id(row_id)['lexeme'])
+
+    def arg_input(self, token):
+        # take input argument for function call
+        if not self.no_more_arg_input:
+            arg = self.semantic_stack.pop()
+            type_arg = self.get_operand_type(arg)
+            name_func = self.semantic_stack.pop()
+            counter_args = self.semantic_stack.pop()
+            counter_args -= 1
+            if counter_args == 0 and token != ")":
+                self.no_more_arg_input = True
+                self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+                                                            error=self.error_num_args,
+                                                            first_op=name_func
+                                                            )
+
+            num_parameters = self.semantic_stack.pop()
+            type_param = self.semantic_stack.pop()
+            if type_arg != type_param:
+                self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+                                                            error=self.error_param_type_missmatch,
+                                                            first_op=num_parameters - counter_args,
+                                                            second_op=name_func,
+                                                            third_op=self.get_type_name(type_param),
+                                                            fourth_op=self.get_type_name(type_arg)
+                                                            )
+            else:
+                if name_func == "output":
+                    self.semantic_stack.append(arg)
+                    self.print("nothing")
+
+            self.semantic_stack.append(num_parameters)
+            self.semantic_stack.append(counter_args)
+            self.semantic_stack.append(name_func)
+
+    def end_call(self, token):
+        # end of function call
+        self.no_more_arg_input = False
+        name_func = self.semantic_stack.pop()
+        counter_args = self.semantic_stack.pop()
+        num_parameters = self.semantic_stack.pop()
+        if counter_args != 0:
+            self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+                                                        error=self.error_num_args,
+                                                        first_op=name_func
+                                                        )
+            self.pop_last_n(counter_args)
+
+        if token == ")" or (len(self.semantic_stack) > 0 and self.semantic_stack[-1] in ["=", "+", "*", "-", "==", "<"]):
+            self.push_num("20")
+
+    def get_type_name(self, tuple_type):
+        if tuple_type[1]:
+            return "array"
+        else:
+            return tuple_type[0]
+
     def push_type(self, token):
         # push type to stack
         if token == "int" or token == "void":
@@ -158,13 +327,17 @@ class CodeGenerator:
         self.semantic_stack.pop()
 
     def break_check(self, token):
-        # TODO check if we are in a repeat until statement
+        # check if we are in a repeat until statement
+        if self.num_open_repeats == 0:
+            self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+                                                        error=self.error_break)
         # push PC counter so that it can be filled in the #until action symbol to jump out
         # self.semantic_stack.insert(0, self.PC)
-        self.semantic_stack.append(self.PC)
-        self.program_block_insert_empty()
-        # self.semantic_stack.insert(1, "break")
-        self.semantic_stack.append("break")
+        else:
+            self.semantic_stack.append(self.PC)
+            self.program_block_insert_empty()
+            # self.semantic_stack.insert(1, "break")
+            self.semantic_stack.append("break")
 
     def declare_id(self, token, kind="var"):
         # search in symbol table
@@ -172,9 +345,14 @@ class CodeGenerator:
         # if not found
         # add to symbol table
         # token will be the lexeme of the variable
-        if self.symbol_table.lookup(token, self.scope_stack[-1], True) != None:
+        if self.symbol_table.lookup(token, self.start_scope, True) is not None:
             raise Exception("variable already declared")
         else:
+            if self.semantic_stack[-1] == "void":
+                self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+                                                            error=self.error_void_type,
+                                                            first_op=token)
+
             self.symbol_table.modify_last_row(kind=kind, type=self.semantic_stack[-1])
             self.program_block_insert(
                 operation=":=",
@@ -184,21 +362,15 @@ class CodeGenerator:
             self.semantic_stack.pop()
 
     def declare_array(self, token):
-        # search in symbol table
-        # if found in current scope raise error
-        # if not found
         # add to symbol table
-        if self.symbol_table.lookup(token, self.scope_stack[-1], True) != None:
-            raise Exception("variable already declared")
-        else:
-            self.symbol_table.modify_attributes_last_row(num_attributes=self.semantic_stack[-1])
-            self.semantic_stack.pop()
+        self.symbol_table.modify_attributes_last_row(num_attributes=self.semantic_stack[-1])
+        self.semantic_stack.pop()
 
     def assign(self, token):
         # stack:
-        # -1: source
+        # -1: source temp
         # -2: =
-        # -3: destination
+        # -3: destination temp
         answer = self.semantic_stack[-3]
         self.program_block_insert(operation=":=", first_op=self.semantic_stack[-1], second_op=self.semantic_stack[-3])
         self.pop_last_n(3)
@@ -210,9 +382,12 @@ class CodeGenerator:
         # declare where to jump back after until in repeat-until
         self.semantic_stack.append(self.PC)
 
+        self.num_open_repeats += 1
+
     def until(self, token):
         # jump back to label if condition is true
         # also check if there were any break statements before
+        self.num_open_repeats -= 1
         temp_until_condition = self.semantic_stack.pop()  # the value that until should decide to jump based on it
         # check breaks
         while len(self.semantic_stack) > 0 and self.semantic_stack[-1] == "break":
@@ -223,22 +398,23 @@ class CodeGenerator:
                                   second_op=self.semantic_stack[-1])
         self.pop_last_n(1)
 
-    def break_check(self, token):
-        self.program_block_insert(
-            operation="JP",
-            first_op=self.semantic_stack[-1] + 9
-        )
-
-    def mult(self, token):
-        # multiply two numbers from top of the stack and push the result
-        first_op = self.semantic_stack[-1]
-        second_op = self.semantic_stack[-2]
-        # todo semantic: check operands type
-        op_type = self.get_operand_type(first_op)
-        temp = self.heap_manager.get_temp(op_type)
-        self.program_block_insert(operation="*", first_op=first_op, second_op=second_op, third_op=temp)
-        self.pop_last_n(2)
-        self.semantic_stack.append(temp)
+    # def mult(self, token):
+    #     # multiply two numbers from top of the stack and push the result
+    #     first_op = self.semantic_stack[-1]
+    #     second_op = self.semantic_stack[-2]
+    #     # todo semantic: check operands type
+    #     op_type, is_array1 = self.get_operand_type(first_op)
+    #     _, is_array2 = self.get_operand_type(second_op)
+    #     if is_array1 or is_array2:
+    #         self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+    #                                                     error=self.error_type_missmatch,
+    #                                                     first_op="array",
+    #                                                     second_op="int")
+    #
+    #     temp = self.heap_manager.get_temp(op_type)
+    #     self.program_block_insert(operation="*", first_op=first_op, second_op=second_op, third_op=temp)
+    #     self.pop_last_n(2)
+    #     self.semantic_stack.append(temp)
 
     def array_calc(self, token):
         # calculate the address of the index of the array
@@ -246,7 +422,7 @@ class CodeGenerator:
         # pop those two and push the address of calculated address to the stack
         array_address = self.semantic_stack[-2]
         # array_type = self.symbol_table.get_row_by_address(array_address)[type_key]
-        array_type = self.get_operand_type(array_address)
+        array_type, _ = self.get_operand_type(array_address)
         temp = self.heap_manager.get_temp(array_type)
         self.program_block_insert(
             operation="*",
@@ -276,7 +452,13 @@ class CodeGenerator:
         second_op = self.semantic_stack[-1]
         self.pop_last_n(3)
         # todo semantic: check operands type
-        operands_type = self.get_operand_type(first_op)
+        operands_type, is_array1 = self.get_operand_type(first_op)
+        _, is_array2 = self.get_operand_type(second_op)
+        if is_array1 or is_array2:
+            self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+                                                        error=self.error_type_missmatch,
+                                                        first_op="array",
+                                                        second_op="int")
         temp = self.heap_manager.get_temp(operands_type)
         self.program_block_insert(operation=op, first_op=first_op, second_op=second_op, third_op=temp)
         self.semantic_stack.append(temp)
@@ -336,8 +518,17 @@ class CodeGenerator:
         # push the address of current token
         # todo semantic: check if variable is declared in our scope
         # todo how should we handle scope?
-        row = self.symbol_table.lookup(token, self.scope_stack[-1])
-        if row[lexeme_key] != "output":  # added because of not implementing function calls
+        if token == "a":
+            pass
+        row = self.symbol_table.lookup(token, self.start_scope)
+        if row is None or address_key not in row:
+            self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+                                                        error=self.error_scoping,
+                                                        first_op=token)
+            # add a dummy address of type int
+            self.semantic_stack.append(self.heap_manager.get_temp("int", 1))
+
+        else:
             address = row[address_key]
             self.semantic_stack.append(address)
 
@@ -347,17 +538,30 @@ class CodeGenerator:
         self.semantic_stack.append("=")
 
     def get_operand_type(self, operand):
+        is_array = False
         if str(operand).startswith("#"):
-            return "int"
+            return "int", is_array
         elif str(operand).startswith("@"):
             operand = operand[1:]
-        return self.heap_manager.get_type_by_address(int(operand))
+        type = self.heap_manager.get_type_by_address(int(operand))
+        if type.endswith("-arr"):
+            type = type[:-4]
+            is_array = True
+
+        return type, is_array
 
     def print_pb(self):
         print("\n--------------Program Block---------------")
         for row in self.PB:
             print(row)
 
-    def write_pb_to_file(self, file):
+    def write_pb_to_file(self, output_file, semantic_file):
+        if self.semantic_analyzer.num_semantic_errors > 0:
+            output_file.write("The output code has not been generated.")
+            for error in self.semantic_analyzer.all_errors:
+                semantic_file.write(error + "\n")
+
+            return
+
         for row in self.PB:
-            file.write(str(row) + "\n")
+            output_file.write(str(row) + "\n")

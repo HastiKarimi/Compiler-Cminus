@@ -19,3 +19,4 @@ semantic_errors.txt
 out.txt
 err.txt
 uploaded_files/
+__pycache__/
