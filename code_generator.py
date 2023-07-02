@@ -76,6 +76,8 @@ class CodeGenerator:
             self.label(token)
         elif action_symbol == "until":
             self.until(token)
+        elif action_symbol == "break_check":
+            self.break_check(token)
         elif action_symbol == "array_calc":
             self.array_calc(token)
         elif action_symbol == "jpf_save":
@@ -200,6 +202,12 @@ class CodeGenerator:
         self.program_block_insert(operation="JPF", first_op=self.semantic_stack[-1],
                                   second_op=self.semantic_stack[-2])
         self.pop_last_n(2)
+
+    def break_check(self, token):
+        self.program_block_insert(
+            operation="JP",
+            first_op=self.semantic_stack[-1] + 9
+        )
 
     def mult(self, token):
         # multiply two numbers from top of the stack and push the result
