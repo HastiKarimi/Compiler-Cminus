@@ -13,8 +13,8 @@ class SymbolTable:
         self.insert("output")
         self.modify_last_row("func", "void")
         self.table[-1]['attributes'] = 1
-        self.table.append({'id': 1, 'lexeme': 'somethingwild', 'kind': "var", 'attributes': '-', 'type': "int",
-                           'scope': 0, 'address': self.heap_manager.get_temp("int", 1)})
+        self.table.append({'id': 1, 'lexeme': 'somethingwild', 'kind': "param", 'attributes': '-', 'type': "int",
+                           'scope': 1, 'address': self.heap_manager.get_temp("int", 1)})
 
     def insert(self, lexeme):
         self.table.append({'id': len(self.table), 'lexeme': lexeme})
@@ -60,44 +60,55 @@ class SymbolTable:
         # must not be removed
         remove_from = len(self.table)
         for i in range(self.scope_stack[-1], len(self.table)):
-            if self.table[i]['kind'] != "param":
+            if self.is_useless_row(i) or self.table[i]['kind'] != "param":
                 remove_from = i
                 break
 
-        for i in range(remove_from, len(self.table)):
-            # this function free_temp is not implemented yet
-            self.heap_manager.free_temp(self.table[i]['type'],
-                                        self.table[i]['attributes'],
-                                        self.table[i]['address'])
 
         self.table = self.table[:remove_from]
 
         self.current_scope -= 1
-        # self.scope_stack.pop()
+        self.scope_stack.pop()
 
     def declare_array(self, num_of_cells):
         self.table[-1]['attributes'] = num_of_cells
 
-    def lookup(self, name, start_ind=0, end_ind=-1, in_declare=False) -> dict:
+    def lookup(self, name, start_ind=0, in_declare=False, end_ind=-1) -> dict:
         # search in symbol table
         # search for it between the start_ind and end_ind of symbol table
         # if end_ind == -1 then it means to search till the end of symbol table
 
-        if end_ind == -1:
-            end_ind = len(self.table)
-            if in_declare:
-                end_ind -= 1
-
         row_answer = None
-        for i in range(start_ind, end_ind):
-            if "address" in self.table[i] and self.table[i]['lexeme'] == name and (self.table[i]['kind'] != "param" or
-                                                                                   self.table[i]['id'] >= self.scope_stack[-1]):
-                row_answer = self.table[i]
+        nearest_scope = -1
+        end = end_ind
+
+        if end_ind == -1:
+            end = len(self.table)
+            if in_declare and self.is_useless_row(-1):
+                end -= 1
+
+        while len(self.scope_stack) >= -nearest_scope:
+            start = self.scope_stack[nearest_scope]
+
+            for i in range(start, end):
+                row_i = self.table[i]
+                if not self.is_useless_row(i):
+                    if nearest_scope != -1 and row_i['kind'] == "param":
+                        pass
+                    elif row_i['lexeme'] == name:
+                        return row_i
+
+            nearest_scope -= 1
+            end = start
 
         return row_answer
 
     def remove_last_row(self):
         self.table.pop()
+
+    def is_useless_row(self, id):
+        if "type" not in self.get_row_by_id(id):
+            return True
 
     def get_row_id_by_address(self, address) -> int:
         return self.address_to_row[address]

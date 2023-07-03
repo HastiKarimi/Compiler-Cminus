@@ -255,8 +255,8 @@ class Scanner:
         if type == id_type:
             if lexeme not in self.identifiers:
                 self.identifiers.append(lexeme)
-                if lexeme != "output":
-                    self.symbol_table.insert(lexeme)
+                # if lexeme != "output":
+                #     self.symbol_table.insert(lexeme)
 
     def write_sym_file(self, token):
         keyword_type = "KEYWORD"

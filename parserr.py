@@ -113,7 +113,6 @@ class Parser:
     def finish(self):
         self.write_syntax_errors()
         self.write_parse_tree()
-        # exit(0)
 
     def call_nt(self, nt_name: str, nt_list: list):
         global eof_reached
@@ -129,7 +128,6 @@ class Parser:
                 if not eof_reached:
                     self.report_syntax_error(unexpected_error_keyword, 'EOF', self.current_line)
                     eof_reached = True
-                    # self.finish()
                 return
             else:
                 self.report_syntax_error(illegal_error_keyword, get_token_name(self.current_token), self.current_line)
@@ -140,8 +138,6 @@ class Parser:
         my_list.extend(rule.get_actions())
         for i in range(len(my_list)):
             action = my_list[i]
-            if self.current_token == "break":
-                pass
             if self.current_token == ('eof', '$') and eof_reached:
                 my_list[i] = None
             elif is_terminal(action):

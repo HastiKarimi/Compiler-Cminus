@@ -4,7 +4,7 @@ Declaration -> Declaration-initial Declaration-prime
 Declaration-initial -> #push_type Type-specifier #declare_id ID
 Declaration-prime -> Fun-declaration-prime | Var-declaration-prime
 Var-declaration-prime -> ; | [ #push_num NUM ] #declare_array ;
-Fun-declaration-prime -> ( #start_func Params #end_func_params ) Compound-stmt
+Fun-declaration-prime -> ( #start_func Params #end_func_params ) Compound-stmt #end_scope
 Type-specifier -> int | void
 Params -> #push_type int #declare_id ID Param-prime Param-list | void
 Param-list -> , #add_param Param Param-list | EPSILON #add_param
@@ -17,7 +17,7 @@ Expression-stmt -> Expression ; | #break break ; | ;
 Selection-stmt -> if ( Expression ) #save Statement else #jpf_save Statement #jp
 Iteration-stmt -> repeat #label Statement until ( Expression ) #until
 Return-stmt -> return Return-stmt-prime #return
-Return-stmt-prime -> ; | Expression ;
+Return-stmt-prime -> #no_return ; | Expression ;
 Expression -> Simple-expression-zegond | #id ID B
 B -> #push_eq = Expression #assign | [ Expression ] #array_calc H | Simple-expression-prime
 H -> #push_eq = Expression #assign | G D C
