@@ -64,7 +64,6 @@ class SymbolTable:
                 remove_from = i
                 break
 
-
         self.table = self.table[:remove_from]
 
         self.current_scope -= 1

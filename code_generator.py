@@ -34,6 +34,16 @@
     declare_entry_array done
 """
 
+
+'''
+things to be done for the 4th phase:
+
+define a new stack for activation records
+    argument push   #copy or pure
+    return
+    jump to main
+'''
+
 from symbol_table import SymbolTable
 from heap_manager import HeapManager
 
@@ -93,7 +103,6 @@ class CodeGenerator:
         self.current_line = line_number
         if self.no_more_arg_input and action_symbol != "#end_call":
             return
-
 
         action_symbol = action_symbol[1:]
         if action_symbol == "declare_id":
@@ -247,8 +256,8 @@ class CodeGenerator:
         # add parameter types to stack in the form of tuple (type, is_array)
         for i in range(num_parameters, 0, -1):
             temp_address_param = self.symbol_table.get_row_by_id(row_id + i)['address']
-            type_param = self.get_operand_type(temp_address_param)
-            self.semantic_stack.append(type_param)
+            # type_param = self.get_operand_type(temp_address_param)
+            self.semantic_stack.append(temp_address_param)
 
         # add the number of parameters to stack
         self.semantic_stack.append(num_parameters)
@@ -273,7 +282,8 @@ class CodeGenerator:
                                                             )
 
             num_parameters = self.semantic_stack.pop()
-            type_param = self.semantic_stack.pop()
+            temp_param = self.semantic_stack.pop()
+            type_param = self.get_operand_type(temp_param)
             if type_arg != type_param:
                 self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
                                                             error=self.error_param_type_missmatch,

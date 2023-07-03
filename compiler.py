@@ -12,7 +12,7 @@ list_needed_files = ["output", "input", "semantic_errors"]
 def create_file_by_mode(name, mode, encoding='utf-8'):
     name_pure = name.split(".")[0]
     if name_pure in list_needed_files:
-        return open(name, mode)
+        return open(name, mode, encoding=encoding)
     return DummyFile()
 
 
