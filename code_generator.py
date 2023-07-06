@@ -34,7 +34,6 @@
     declare_entry_array done
 """
 
-
 '''
 things to be done for the 4th phase:
 
@@ -53,6 +52,8 @@ address_key = "address"
 scope_key = "scope"
 attributes_key = "attributes"
 lexeme_key = "lexeme"
+invocation_address_key = "invocation_address"
+return_address_key = "return_address"
 
 
 class SemanticAnalyzer:
@@ -68,6 +69,13 @@ class SemanticAnalyzer:
         # if we declare a function of type void we must pop the error
         self.all_errors.pop()
         self.num_semantic_errors -= 1
+
+
+def get_type_name(tuple_type):
+    if tuple_type[1]:
+        return "array"
+    else:
+        return tuple_type[0]
 
 
 class CodeGenerator:
@@ -113,8 +121,8 @@ class CodeGenerator:
             self.push_type(token)
         elif action_symbol == "do_op":
             self.do_op(token)
-        elif action_symbol == "mult":
-            self.mult(token)
+        # elif action_symbol == "mult":
+        #     self.mult(token)
         elif action_symbol == "push_op":
             self.push_op(token)
         elif action_symbol == "label":
@@ -161,8 +169,10 @@ class CodeGenerator:
             self.arg_input(token)
         elif action_symbol == "end_scope":
             self.end_scope(token)
-        elif action_symbol == "no_return":
-            self.no_return(token)
+        elif action_symbol == "push_function":
+            self.push_function(token)
+        elif action_symbol == "set_function_info":
+            self.set_function_info(token)
 
     def pop_last_n(self, n):
         # pop last n elements from semantic stack
@@ -255,7 +265,7 @@ class CodeGenerator:
         num_parameters = self.symbol_table.get_row_by_id(row_id)[attributes_key]
         # add parameter types to stack in the form of tuple (type, is_array)
         for i in range(num_parameters, 0, -1):
-            temp_address_param = self.symbol_table.get_row_by_id(row_id + i)['address']
+            temp_address_param = self.symbol_table.get_row_by_id(row_id + i)[address_key]
             # type_param = self.get_operand_type(temp_address_param)
             self.semantic_stack.append(temp_address_param)
 
@@ -264,7 +274,7 @@ class CodeGenerator:
         # add a counter for arguments - at first it is equal to number of parameters
         self.semantic_stack.append(num_parameters)
         # add name of function to stack
-        self.semantic_stack.append(self.symbol_table.get_row_by_id(row_id)['lexeme'])
+        self.semantic_stack.append(self.symbol_table.get_row_by_id(row_id)[lexeme_key])
 
     def arg_input(self, token):
         # take input argument for function call
@@ -314,17 +324,23 @@ class CodeGenerator:
                                                         )
             self.pop_last_n(counter_args)
 
-        # todo: this must be replaced later. In the current way we find out if we want the output of function and
-        # push a dummy number
-        if token in ["=", "+", "*", "-", "==", "<", ")"] or (
-                len(self.semantic_stack) > 0 and self.semantic_stack[-1] in ["=", "+", "*", "-", "==", "<"]):
-            self.push_num("20")
+        function_row = self.symbol_table.lookup(name_func)
 
-    def get_type_name(self, tuple_type):
-        if tuple_type[1]:
-            return "array"
-        else:
-            return tuple_type[0]
+        # return if function_row does not have a key for invocation address
+        if invocation_address_key not in function_row or return_address_key not in function_row:
+            return
+
+        # update the return address temp of function
+        return_address_temp = function_row[return_address_key]
+        self.program_block_insert(
+            operation=":=",
+            first_op=str(self.PC),
+            second_op=return_address_temp
+        )
+        self.program_block_insert(
+            operation="JP",
+            first_op=function_row[invocation_address_key]
+        )
 
     def push_type(self, token):
         # push type to stack
@@ -564,3 +580,20 @@ class CodeGenerator:
 
         for row in self.PB:
             output_file.write(str(row) + "\n")
+
+    def push_function(self, token):
+        # push function row index to stack (it's the last row of symbol table)
+        self.semantic_stack.append(self.symbol_table.get_last_row_index())
+
+    def set_function_info(self, token):
+        function_row_index = self.semantic_stack.pop()
+        row = self.symbol_table.get_row_by_id(function_row_index)
+        current_pc = self.PC
+        return_address_temp = self.heap_manager.get_temp('int')
+        return_value_temp = self.heap_manager.get_temp(row[type_key])
+        self.symbol_table.modify_func_row_information(
+            row_index=function_row_index,
+            invocation_address=current_pc,
+            return_address=return_address_temp,
+            return_value_temp=return_value_temp
+        )

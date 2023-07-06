@@ -29,6 +29,16 @@ class SymbolTable:
         self.table[-1]['attributes'] = '-'
         self.address_to_row[self.table[-1]['address']] = len(self.table) - 1
 
+    def modify_func_row_information(self, row_index, invocation_address, return_address, return_value):
+        # add a "invocation_address" field to the row,
+        # this is used when we declare a function and we want to invoke it. We should know where to jump to
+        self.table[row_index]['invocation_address'] = invocation_address
+        # add a "return_address" field to the row,
+        # anyone who calls the function should put its address (PC) in this address
+        self.table[row_index]['return_address'] = return_address
+        # return value is the address of a temp that is supporsed to hold the return value of the function
+        self.table[row_index]['return_value'] = return_value
+
     def modify_attributes_last_row(self, num_attributes, arr_func: bool = True):
         # used for array declaration and function declaration
         # if arr_func == True then it is an array
@@ -53,7 +63,7 @@ class SymbolTable:
         self.scope_stack.append(len(self.table))
 
     def end_scope(self):
-        # remove all rows of symbol table that are in the current scope 
+        # remove all rows of symbol table that are in the current scope
         # and update the current scope
         # remember function is first added and then the scope is added
         # also param type of the function that the scope is created for,
@@ -123,3 +133,6 @@ class SymbolTable:
 
     def get_last_row(self):
         return self.get_row_by_id(-1)
+
+    def get_last_row_index(self):
+        return len(self.table) - 1
