@@ -434,8 +434,8 @@ class CodeGenerator:
         # add to symbol table
         # token will be the lexeme of the variable
         the_row = self.symbol_table.lookup(token, self.start_scope, False)
-        if the_row is not None and the_row[type_key] == "param":
-            # this means that the variable is already declared and is the function parameter,
+        if the_row is not None and the_row[scope_key] == self.symbol_table.current_scope:
+            # this means that the variable is already declared,
             # and we want to redefine it
             del the_row[type_key]
 
