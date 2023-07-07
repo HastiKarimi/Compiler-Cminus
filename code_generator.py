@@ -56,6 +56,7 @@ invocation_address_key = "invocation_address"
 return_address_key = "return_address"
 return_value_key = "return_value"
 
+
 class SemanticAnalyzer:
     def __init__(self):
         self.num_semantic_errors = 0
@@ -260,7 +261,6 @@ class CodeGenerator:
             first_op="@" + str(function_row[return_address_key])
         )
 
-
     def start_func(self, token):
         # start of function declaration
         self.symbol_table.modify_kind_last_row("func")
@@ -334,13 +334,14 @@ class CodeGenerator:
 
             type_param = self.get_operand_type(temp_param)
             if type_arg != type_param:
-                self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
-                                                            error=self.error_param_type_missmatch,
-                                                            first_op=num_parameters - counter_args,
-                                                            second_op=name_func,
-                                                            third_op=self.get_type_name(type_param),
-                                                            fourth_op=self.get_type_name(type_arg)
-                                                            )
+                pass
+                # self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
+                #                                             error=self.error_param_type_missmatch,
+                #                                             first_op=num_parameters - counter_args,
+                #                                             second_op=name_func,
+                #                                             third_op=self.get_type_name(type_param),
+                #                                             fourth_op=self.get_type_name(type_arg)
+                #                                             )
             else:
                 if name_func == "output":
                     self.semantic_stack.append(arg)
@@ -364,6 +365,9 @@ class CodeGenerator:
             self.pop_last_n(counter_args)
 
         function_row = self.symbol_table.lookup(name_func)
+        index = function_row['id']
+        if index in self.FS:
+            self.semantic_analyzer.raise_semantic_error(1)  # todo added to avoid recursive call
 
         # return if function_row does not have needed keys (may not happen!)
         if invocation_address_key not in function_row or return_address_key not in function_row:
@@ -388,7 +392,13 @@ class CodeGenerator:
             first_op=function_row[invocation_address_key]
         )
         if function_row[type_key] != "void":
-            self.semantic_stack.append(function_row[return_value_key])
+            returnee_copy = self.heap_manager.get_temp(function_row[type_key])
+            self.program_block_insert(
+                operation=":=",
+                first_op=function_row[return_value_key],
+                second_op=returnee_copy
+            )
+            self.semantic_stack.append(returnee_copy)
 
     def push_type(self, token):
         # push type to stack
@@ -445,8 +455,21 @@ class CodeGenerator:
 
     def declare_array(self, token):
         # add to symbol table
-        self.symbol_table.modify_attributes_last_row(num_attributes=self.semantic_stack[-1])
-        self.semantic_stack.pop()
+        array_size = self.semantic_stack.pop()
+        if str(array_size).startswith("#"):
+            array_size = int(array_size[1:])
+        self.symbol_table.modify_attributes_last_row(num_attributes=array_size)
+        array_row = self.symbol_table.get_last_row()
+        # array address is the address of pointer to array
+        # we need to allocate memory for the array itself and then assign the address of the first entry to the pointer
+        array_address = array_row[address_key]
+        entries_type = array_row[type_key]
+        array_start_address = self.heap_manager.get_temp(entries_type, array_size)
+        self.program_block_insert(
+            operation=":=",
+            first_op="#" + str(array_start_address),
+            second_op=array_address
+        )
 
     def assign(self, token):
         # stack:
@@ -485,21 +508,23 @@ class CodeGenerator:
         # the index is on top of the stack and the address of array is the second element
         # pop those two and push the address of calculated address to the stack
         array_address = self.semantic_stack[-2]
+        array_index = self.semantic_stack[-1]
+        self.pop_last_n(2)
+
         array_type, _ = self.get_operand_type(array_address)
         temp = self.heap_manager.get_temp(array_type)
         self.program_block_insert(
             operation="*",
-            first_op=self.semantic_stack[-1],
+            first_op=array_index,
             second_op="#" + str(self.heap_manager.get_length_by_type(array_type)),
             third_op=temp
         )
         self.program_block_insert(
             operation="+",
-            first_op=str('#' + str(array_address)),
+            first_op=array_address,
             second_op=temp,
             third_op=temp
         )
-        self.pop_last_n(2)
         self.semantic_stack.append(str('@' + str(temp)))
 
     def push_op(self, token):
@@ -579,10 +604,6 @@ class CodeGenerator:
 
     def id(self, token):
         # push the address of current token
-        # todo semantic: check if variable is declared in our scope
-        # todo how should we handle scope?
-        if token == "a":
-            pass
         row = self.symbol_table.lookup(token, self.start_scope)
         if row is None:
             self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
@@ -678,6 +699,13 @@ class CodeGenerator:
         self.semantic_stack.append("scope_start")
 
     def pop_scope(self, token):
+        breaks_array = []
         while self.semantic_stack[-1] != "scope_start":
-            self.semantic_stack.pop()
+            if self.semantic_stack[-1] == "break":
+                breaks_array.append(self.semantic_stack.pop())
+                breaks_array.append(self.semantic_stack.pop())
+            else:
+                self.semantic_stack.pop()
         self.semantic_stack.pop()
+        breaks_array.reverse()
+        self.semantic_stack.extend(breaks_array)

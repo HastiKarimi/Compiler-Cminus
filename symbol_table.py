@@ -39,15 +39,12 @@ class SymbolTable:
         # return value is the address of a temp that is supposed to hold the return value of the function
         self.table[row_index]['return_value'] = return_value
 
-    def modify_attributes_last_row(self, num_attributes, arr_func: bool = True):
+    def modify_attributes_last_row(self, num_attributes):
         # used for array declaration and function declaration
         # if arr_func == True then it is an array
         # else it is a function
         # note: for now it is only used for array declaration
-        num_attributes = int(num_attributes[1:])
         self.table[-1]['attributes'] = num_attributes
-        if arr_func:
-            self.heap_manager.get_temp(self.table[-1]['type'], num_attributes - 1, True)
 
     def modify_attributes_row(self, row_id, num_attributes, arr_func: bool = True):
         # used for modifying function No. of args after counting them
