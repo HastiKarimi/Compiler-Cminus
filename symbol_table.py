@@ -36,7 +36,7 @@ class SymbolTable:
         # add a "return_address" field to the row,
         # anyone who calls the function should put its address (PC) in this address
         self.table[row_index]['return_address'] = return_address
-        # return value is the address of a temp that is supporsed to hold the return value of the function
+        # return value is the address of a temp that is supposed to hold the return value of the function
         self.table[row_index]['return_value'] = return_value
 
     def modify_attributes_last_row(self, num_attributes, arr_func: bool = True):

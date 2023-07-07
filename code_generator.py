@@ -54,7 +54,7 @@ attributes_key = "attributes"
 lexeme_key = "lexeme"
 invocation_address_key = "invocation_address"
 return_address_key = "return_address"
-
+return_value_key = "return_value"
 
 class SemanticAnalyzer:
     def __init__(self):
@@ -84,6 +84,7 @@ class CodeGenerator:
         self.symbol_table = symbol_table
         self.semantic_stack = []
         self.PB = []
+        self.FS = []
         # pc shows the next line of program block to be filled (i in slides)
         self.PC = 0
         self.heap_manager = heap
@@ -165,14 +166,26 @@ class CodeGenerator:
             self.declare_entry_array(token)
         elif action_symbol == "return":
             self.return_command(token)
+        elif action_symbol == "return_manual":
+            self.return_manual(token)
         elif action_symbol == "arg_input":
             self.arg_input(token)
         elif action_symbol == "end_scope":
             self.end_scope(token)
         elif action_symbol == "push_function":
             self.push_function(token)
+        elif action_symbol == "pop_function":
+            self.pop_function(token)
         elif action_symbol == "set_function_info":
             self.set_function_info(token)
+        elif action_symbol == "call_main":
+            self.call_main(token)
+        elif action_symbol == "jump_out":
+            self.jump_out(token)
+        elif action_symbol == "show_scope_start":
+            self.show_scope_start(token)
+        elif action_symbol == "pop_scope":
+            self.pop_scope(token)
 
     def pop_last_n(self, n):
         # pop last n elements from semantic stack
@@ -223,10 +236,30 @@ class CodeGenerator:
         self.symbol_table.end_scope()
 
     def return_command(self, token):
-        self.semantic_stack.pop()
+        function_row_index = self.FS[-1]
+        function_row = self.symbol_table.get_row_by_id(function_row_index)
+        return_type = function_row[type_key]
+        if return_type != "void":
+            return_value = self.semantic_stack.pop()
+            return_value_temp_address = function_row[return_value_key]
+            self.program_block_insert(
+                operation=":=",
+                first_op=return_value,
+                second_op=return_value_temp_address
+            )
+        self.program_block_insert(
+            operation="JP",
+            first_op="@" + str(function_row[return_address_key])
+        )
 
-    def no_return(self, token):
-        self.semantic_stack.append(0)
+    def return_manual(self, token):
+        function_row_index = self.FS[-1]
+        function_row = self.symbol_table.get_row_by_id(function_row_index)
+        self.program_block_insert(
+            operation="JP",
+            first_op="@" + str(function_row[return_address_key])
+        )
+
 
     def start_func(self, token):
         # start of function declaration
@@ -260,12 +293,12 @@ class CodeGenerator:
     def start_call(self, token):
         # start of function call
         # row_id = self.symbol_table.lookup(self.semantic_stack[-1])['id']
-        row_id = self.symbol_table.get_row_id_by_address(self.semantic_stack[-1])
+        function_row_id = self.symbol_table.get_row_id_by_address(self.semantic_stack[-1])
         self.semantic_stack.pop()
-        num_parameters = self.symbol_table.get_row_by_id(row_id)[attributes_key]
+        num_parameters = self.symbol_table.get_row_by_id(function_row_id)[attributes_key]
         # add parameter types to stack in the form of tuple (type, is_array)
         for i in range(num_parameters, 0, -1):
-            temp_address_param = self.symbol_table.get_row_by_id(row_id + i)[address_key]
+            temp_address_param = self.symbol_table.get_row_by_id(function_row_id + i)[address_key]
             # type_param = self.get_operand_type(temp_address_param)
             self.semantic_stack.append(temp_address_param)
 
@@ -274,7 +307,7 @@ class CodeGenerator:
         # add a counter for arguments - at first it is equal to number of parameters
         self.semantic_stack.append(num_parameters)
         # add name of function to stack
-        self.semantic_stack.append(self.symbol_table.get_row_by_id(row_id)[lexeme_key])
+        self.semantic_stack.append(self.symbol_table.get_row_by_id(function_row_id)[lexeme_key])
 
     def arg_input(self, token):
         # take input argument for function call
@@ -293,6 +326,12 @@ class CodeGenerator:
 
             num_parameters = self.semantic_stack.pop()
             temp_param = self.semantic_stack.pop()
+            self.program_block_insert(
+                operation=":=",
+                first_op=arg,
+                second_op=temp_param
+            )
+
             type_param = self.get_operand_type(temp_param)
             if type_arg != type_param:
                 self.semantic_analyzer.raise_semantic_error(line_no=self.current_line,
@@ -326,21 +365,30 @@ class CodeGenerator:
 
         function_row = self.symbol_table.lookup(name_func)
 
-        # return if function_row does not have a key for invocation address
+        # return if function_row does not have needed keys (may not happen!)
         if invocation_address_key not in function_row or return_address_key not in function_row:
+            # print("error in function declaration")
             return
 
-        # update the return address temp of function
+        # update the return address temp of function (we want the function to return here after invocation)
         return_address_temp = function_row[return_address_key]
         self.program_block_insert(
             operation=":=",
-            first_op=str(self.PC),
+            first_op="#" + str(self.PC + 2),
             second_op=return_address_temp
         )
+
+        # # if the function is supposed to return a value, we need to push the address of return value to stack
+        # if function_row[type_key] != "void":
+        #     self.semantic_stack.append(function_row[return_value_key]
+
+        # now that everything is set (including return address and arguments assignment), we can jump to the function
         self.program_block_insert(
             operation="JP",
             first_op=function_row[invocation_address_key]
         )
+        if function_row[type_key] != "void":
+            self.semantic_stack.append(function_row[return_value_key])
 
     def push_type(self, token):
         # push type to stack
@@ -583,10 +631,14 @@ class CodeGenerator:
 
     def push_function(self, token):
         # push function row index to stack (it's the last row of symbol table)
-        self.semantic_stack.append(self.symbol_table.get_last_row_index())
+        self.FS.append(self.symbol_table.get_last_row_index())
+
+    def pop_function(self, token):
+        # pop function row index from stack
+        self.FS.pop()
 
     def set_function_info(self, token):
-        function_row_index = self.semantic_stack.pop()
+        function_row_index = self.FS[-1]
         row = self.symbol_table.get_row_by_id(function_row_index)
         current_pc = self.PC
         return_address_temp = self.heap_manager.get_temp('int')
@@ -595,5 +647,37 @@ class CodeGenerator:
             row_index=function_row_index,
             invocation_address=current_pc,
             return_address=return_address_temp,
-            return_value_temp=return_value_temp
+            return_value=return_value_temp
         )
+
+    def jump_out(self, token):
+        # after the declaration of function is done,
+        # we save a space in PB to tell us to jump out  of it and go to the declaration of next functions
+        # Right now we know the next function. So we can fill out the saved row of PB
+        self.program_block_modification(
+            index=self.semantic_stack.pop(),
+            operation="JP",
+            first_op=str(self.PC)
+        )
+
+    def call_main(self, token):
+        main_function_row = self.symbol_table.lookup("main")
+        # set up the return address register of main
+        self.program_block_insert(
+            operation=":=",
+            first_op="#" + str(self.PC + 2),
+            second_op=str(main_function_row[return_address_key])
+        )
+        # now jump to the invocation address of main
+        self.program_block_insert(
+            operation="JP",
+            first_op=str(main_function_row[invocation_address_key])
+        )
+
+    def show_scope_start(self, token):
+        self.semantic_stack.append("scope_start")
+
+    def pop_scope(self, token):
+        while self.semantic_stack[-1] != "scope_start":
+            self.semantic_stack.pop()
+        self.semantic_stack.pop()
